@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CS180 Project 1: Colorizing Images of the Russian Empire</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        header {
+            font-size: 1.8em;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+
+        .subheader {
+            font-size: 1.4em;
+            font-weight: normal;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        section {
+            margin: 20px 0;
+        }
+
+        .image-section {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .image-section img {
+            height: 400px;
+        }
+
+        .image-section div {
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>CS180 Project 1: Colorizing Images of the Russian Empire</header>
+    <p>By Ethan Kuo</p>
+
+
+    <header>Introduction</header>
+    <section>
+        <p>In the early 20th century, Sergei Mikhailovich Prokudin-Gorskii traveled throughout the Russian Empire and
+            took thousands of pictures of everyday sights with three different filters: red, green and blue.
+            Prokudin-Gorskii knew that, with these three colored exposures recorded onto glass plates, color pictures of
+            these sights could eventually be brought to life. This project does just that.</p>
+    </section>
+
+    <header>Methodology</header>
+    <section>
+        <p>My task was to take 3 grayscale images, each corresponding to the red, green, and blue channels for a colored
+            image,
+            and align them to construct that colored image. The difficulty here lies in that these filters must be
+            aligned
+            properly, and we need to try various alignments and assess their effectiveness using some similarity metric.
+        </p>
+        <p>The similarity metric I used was <strong>normalized cross correlation</strong> (NCC). Intuitively, NCC yields
+            a high similarity score for an alignment of 2 channels when high values are matched with high values, and
+            low values are matched with low values.</p>
+        <p>Crucially, when aligning color channels, the "similarity" we are looking for is not in the RGB values
+            themselves
+            but rather the structural similarity of the images. For example, for an image with a green hill, the
+            RGB values for that hill would be close to (255, 0, 0), but NCC would punish the correct alignment of the
+            red and green filters since their values are so different. Thus, I applied <strong>Canny edge
+                detection</strong> on each channel, an
+            algorithm that identifies the edges or boundaries of objects within an image. Then, I applied
+            NCC on the "edge versions" of the channels so that they would be aligned based on structural
+            similarity.</p>
+
+        <div class="image-section">
+            <div><img src="media/cathedral_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/cathedral_only_ncc.jpg">
+                <p>NCC on direct RGB values</p>
+            </div>
+            <div><img src="media/cathedral.jpg">
+                <p>NCC on Canny edge detection image</p>
+            </div>
+        </div>
+
+        <p>For small .jpg images, I searched a range of displacements, such as [-15, 15] pixels, for the red or green
+            filters relative to the blue filter. For larger .tif images, I used a
+            <strong>recursive image pyramid</strong> search. Image pyramid search works by repeatedly downscaling an
+            image
+            to create a pyramid of progressively smaller images, then using the best displacement vector for the
+            previous resolution level as a starting point for the search for the next level. This significantly reduces
+            the search space of displacement vectors by progressively honing in on high potential vectors.
+        </p>
+
+        <div class="image-section"><img src="media/image_pyramid.png">
+        </div>
+    </section>
+
+    <header>Aligned Images</header>
+    <p>Like the previous example, each colorized image is the result of aligning the Canny edge versions of the color
+        channels using the NCC
+        similarity metric. This scheme was successful on both the small and large images. </p>
+    <section>
+        <p class="subheader">Cathedral</p>
+        <div class="image-section">
+            <div><img src="media/cathedral_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/cathedral.jpg">
+                <p>G: [2, 5], R: [3, 12]</p>
+            </div>
+        </div>
+
+        <p class="subheader">Church</p>
+        <div class="image-section">
+            <div><img src="media/church_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/church.jpg">
+                <p>G: [3, 25], R: [-4, 58]</p>
+            </div>
+        </div>
+
+        <p class="subheader">Emir</p>
+        <div class="image-section">
+            <div><img src="media/emir_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/emir.jpg">
+                <p>G: [23, 49], R: [40, 107]</p>
+            </div>
+        </div>
+
+        <p class="subheader">Harvesters</p>
+        <div class="image-section">
+            <div><img src="media/harvesters_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/harvesters.jpg">
+                <p>G: [17, 60], R: [13, 123]</p>
+            </div>
+        </div>
+
+        <p class="subheader">Icon</p>
+        <div class="image-section">
+            <div><img src="media/icon_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/icon.jpg">
+                <p>G: [16, 39], R: [22, 88]</p>
+            </div>
+        </div>
+
+        <p class="subheader">Lady</p>
+        <div class="image-section">
+            <div><img src="media/lady_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/lady.jpg">
+                <p>G: [10, 56], R: [13, 120]</p>
+            </div>
+        </div>
+
+        <p class="subheader">Melons</p>
+        <div class="image-section">
+            <div><img src="media/melons_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/melons.jpg">
+                <p>G: [10, 80], R: [14, 177]</p>
+            </div>
+        </div>
+
+        <p class="subheader">Monastery</p>
+        <div class="image-section">
+            <div><img src="media/monastery_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/monastery.jpg">
+                <p>G: [2, -3], R: [2, 3]</p>
+            </div>
+        </div>
+
+        <p class="subheader">Onion Church</p>
+        <div class="image-section">
+            <div><img src="media/onion_church_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/onion_church.jpg">
+                <p>G: [24, 52], R: [35, 107]</p>
+            </div>
+        </div>
+
+        <p class="subheader">Sculpture</p>
+        <div class="image-section">
+            <div><img src="media/sculpture_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/sculpture.jpg">
+                <p>G: [-11, 33], R: [-27, 140]</p>
+            </div>
+        </div>
+
+        <p class="subheader">Self Portrait</p>
+        <div class="image-section">
+            <div><img src="media/self_portrait_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/self_portrait.jpg">
+                <p>G: [29, 77], R: [37, 175]</p>
+            </div>
+        </div>
+
+        <p class="subheader">Three Generations</p>
+        <div class="image-section">
+            <div><img src="media/three_generations_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/three_generations.jpg">
+                <p>G: [12, 56], R: [10, 114]</p>
+            </div>
+        </div>
+
+        <p class="subheader">Tobolsk</p>
+        <div class="image-section">
+            <div><img src="media/tobolsk_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/tobolsk.jpg">
+                <p>G: [3, 3], R: [3, 6]</p>
+            </div>
+        </div>
+
+        <p class="subheader">Train</p>
+        <div class="image-section">
+            <div><img src="media/train_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/train.jpg">
+                <p>G: [0, 47], R: [29, 85]</p>
+            </div>
+        </div>
+    </section>
+
+    <header>Extra images</header>
+    <section>
+        <p class="subheader">Adobe</p>
+        <div class="image-section">
+            <div><img src="media/adobe_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/adobe.jpg">
+                <p>G: [3, 33], R: [7, 79]</p>
+            </div>
+        </div>
+
+        <p class="subheader">Siren</p>
+        <div class="image-section">
+            <div><img src="media/siren_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/siren.jpg">
+                <p>G: [-8, 48], R: [-24, 96]</p>
+            </div>
+        </div>
+
+        <p class="subheader">Boy</p>
+        <div class="image-section">
+            <div><img src="media/boy_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/boy.jpg">
+                <p>G: [-13, 45], R: [-10, 103]</p>
+            </div>
+        </div>
+
+        <p class="subheader">Railroad</p>
+        <div class="image-section">
+            <div><img src="media/railroad_channels.jpg">
+                <p>Original images</p>
+            </div>
+            <div><img src="media/railroad.jpg">
+                <p>G: [0, 3], R: [0, 10]</p>
+            </div>
+        </div>
+    </section>
+
+</body>
+
+</html>
