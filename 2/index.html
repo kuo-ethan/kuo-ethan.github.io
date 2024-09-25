@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+
+<head>
+    <title>CS180 Project 2: Fun with Filters and Frequencies</title>
+</head>
+<style>
+    .container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    figure {
+        display: table;
+        margin-left: 5px;
+        margin-right: 5px;
+    }
+
+    .blend-figure {
+        display: table;
+        margin-left: 2px;
+        margin-right: 2px;
+        margin-bottom: 2px;
+        margin-top: 2px
+    }
+
+    img {
+        max-height: 250px;
+        max-width: 220px;
+        display: block;
+        border: 2px solid black
+    }
+
+    .blend-img {
+        max-height: 150px;
+        max-width: 150px;
+        display: block;
+        border: 2px solid black
+    }
+
+
+    .blend-img-big {
+        max-height: 250px;
+        max-width: 250px;
+        display: block;
+        border: 2px solid black
+    }
+
+    .formula-img {
+        max-width: 500px;
+        max-height: 120px;
+        display: block;
+        margin-bottom: 10px
+    }
+
+    .diagram-img {
+        max-width: 1000px;
+        display: block;
+        margin-bottom: 10px
+    }
+
+    figcaption {
+        display: table-caption;
+        caption-side: bottom;
+        font-size: 15px;
+        text-align: center;
+        color: #606060
+    }
+
+    body {
+        padding-left: 15%;
+        padding-right: 15%
+    }
+
+    h1 {
+        padding-bottom: 20px;
+    }
+
+    h2 {
+        padding-top: 30px;
+    }
+
+    h3 {
+        padding-top: 20px;
+    }
+</style>
+
+<body style="font-family: Arial, sans-serif">
+    <h1 style="text-align: center;">CS180 Project 2: Fun with Filters and Frequencies</h1>
+    <p style="text-align: center;">By Ethan Kuo</p>
+
+    <h2>Introduction</h2>
+
+    <p>
+        When we think of how images are represented, we typically think of the spatial domain: pixels and their
+        intensities, such as in RGB. However, we can also view images in the <strong>Fourier domain</strong>, which
+        relies on the amazing fact that any image can be represented as a sum of sinusoids!
+    </p>
+    <p>
+        Take this Albert Einstein image for instance. One way to represent this image is a 2D matrix, where each entry
+        holds the pixel intensity at a coordinate. But since this image also is a weighted sum of many of these
+        "sinusoid images," each with a unique frequency and direction, we can also cast the image in the Fourier
+        domain, where white points correspond to highly weighted sinusoids and black points correspond to lowly
+        weighted sinusoids. Essentially, the Fourier image tells us which frequencies are important to an image.
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/einstein.png">
+            <figcaption class="figcaption">A linear combination of many sinusoids equals the Einstein image.
+            </figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/einstein_fourier.png">
+            <figcaption class="figcaption">Einstein in the Fourier domain
+            </figcaption>
+        </figure>
+    </div>
+
+    <p>
+        But what do frequencies mean in the context of an image? High frequencies capture the fine details in an image,
+        such as edges, while low frequencies capture big-picture structure and approximations in an image. And this
+        makes intuitive sense! A "sinusoid image" with high frequency will match up well with, say, the repeating edges
+        in a plaid shirt. And one with low frequency will match up well with the rolling green gradient of a hill.
+    </p>
+    <p>
+        In this project, we explore interesting transformations of images, with a keen interest in their Fourier
+        representations.
+    </p>
+
+    <h2 style="text-align: center;">Part 1 | Fun with Filters! </h2>
+
+    <h3>Part 1.1 | Finite Difference Operator </h3>
+
+    <p>
+        Derivatives are functions that tell us the rate of change at a point. In images, we can use a similar concept to
+        compute a rate of change at a specific location in a discrete image. We convolve the image with a finite
+        difference filter to identify areas with a high rate of change in the x and y directions.
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/finite_difference_operators.png" class="formula-img">
+            <figcaption class="figcaption">Finite difference operators in the x and y directions.
+            </figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/cameraman.png">
+            <figcaption class="figcaption">Original image</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/cameraman_x_derivative.jpg">
+            <figcaption class="figcaption">Derivative in x direction</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/cameraman_y_derivative.jpg">
+            <figcaption class="figcaption">Derivative in y direction</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        Now we can compute the <strong>gradient magnitude</strong> of the image, which essentially combines the
+        rate of change in the x and y directions to show how much an image is changing at a point. It turns out that the
+        gradient magnitude works well as an edge detector, since edges generally represent a sharp change in the image
+        and thus have high gradients. Then, we pick a threshold for the gradient magnitude to classify edges and ignore
+        some nosie.
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/gradient_magnitude.png" class="formula-img">
+            <figcaption class="figcaption">Formula for computing gradient magnitude
+            </figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/cameraman.png">
+            <figcaption class="figcaption">Original image</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/cameraman_gradient.jpg">
+            <figcaption class="figcaption">Gradient magnitudes</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/cameraman_edges:gradient.jpg">
+            <figcaption class="figcaption">Threshold=0.3</figcaption>
+        </figure>
+    </div>
+
+    <h3>Part 1.2 | Derivative of Gaussian (DoG) Filter </h3>
+
+    <p>
+        Our previous edge detection image is a bit frizzy. We can fix this by first blurring the image using a
+        Gaussian filter before computing the gradient magnitude. This works because non-edges are likely to be smoothed
+        out, observe a low gradient magnitude, and thus not be misclassified as an edge.
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/cameraman.png">
+            <figcaption class="figcaption">Original Image</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/cameraman_blurred:gaussian.jpg">
+            <figcaption class="figcaption">Blurred with Gaussian filter</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/cameraman_x_dog.jpg">
+            <figcaption class="figcaption">Derivative in x direction</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/cameraman_y_dog.jpg">
+            <figcaption class="figcaption">Derivative y direction</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/cameraman:blur-gradient.jpg">
+            <figcaption class="figcaption">Gradient magnitudes</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/cameraman_edges:blur-gradient.jpg">
+            <figcaption class="figcaption">Threshold=0.125</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        Now that our edge detection is more crisp, let's introduce a performance optimization. We can combine the
+        Gaussian blur and finite difference operator into a single
+        convolution. The <strong>derivative of Gaussian</strong> (DoG) filter is created by convolving each finite
+        differences operator with the Gaussian filter.
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/gaussian_filter.png">
+            <figcaption class="figcaption">Gaussian Filter</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/dog_x.png">
+            <figcaption class="figcaption">DoG in x direction</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/dog_y.png">
+            <figcaption class="figcaption">DoG in y direction</figcaption>
+        </figure>
+    </div>
+
+    <p>Then, we can simply convolve the DoG with the image rather than convolving both the Gaussian filter and finite
+        difference operators individually on a potentially large image. Notice the results are the same as
+        before.
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/cameraman.png">
+            <figcaption class="figcaption">Original Image</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/cameraman_x_dog.jpg">
+            <figcaption class="figcaption">DoG in x direction applied</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/cameraman_y_dog.jpg">
+            <figcaption class="figcaption">DoG in y direction applied</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/cameraman:blur-gradient.jpg">
+            <figcaption class="figcaption">Gradient magnitudes</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/cameraman_edges:dog.jpg">
+            <figcaption class="figcaption">Threshold=0.125</figcaption>
+        </figure>
+    </div>
+
+    <h2 style="text-align: center;">Part 2 | Fun with Frequencies! </h2>
+
+    <h3>Part 2.1 | Image Sharpening </h3>
+
+    <p>
+        A sharpened image displays its fine details more strongly, which involves accentuating its high frequencies.
+        Here we employ the <strong>unmask sharpening</strong>> technique: obtain a blurred image using a Gaussian
+        filter, subtract that
+        blurred image from the original image to obtain high frequencies, then add that back into the original image
+        (weighted by some alpha). Best of all, we can combine all of these operations into a single convolution, as
+        shown below.
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/unsharp_mask_filter.png" class="formula-img">
+            <figcaption class="figcaption">Unsharp mask filter
+            </figcaption>
+        </figure>
+    </div>
+
+    <p>
+        Here, I show the progression of getting the low and high
+        frequencies for clarity, but the last image shows that the unsharp mask filter does all of the steps in a
+        single convolution.
+    </p>
+
+    <h4 style="text-align: center;">Taj Mahal</h4>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/taj.jpg">
+            <figcaption class="figcaption">Original image</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/taj_low_freq.jpg">
+            <figcaption class="figcaption">Low frequencies</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/taj_high_freq.jpg">
+            <figcaption class="figcaption">High frequencies</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/taj_sharpened:unsharp_mask.jpg">
+            <figcaption class="figcaption">Sharpened, alpha=2</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/taj_sharpened:unsharp_mask_filter.jpg">
+            <figcaption class="figcaption">Sharpened (single convolution), alpha=2</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        Here, I sharpen some more images using the unsharp mask filter. The differences are subtle, so it may help to
+        zoom in.
+    </p>
+
+    <h4 style="text-align: center;">Pug</h4>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/pug.jpg">
+            <figcaption class="figcaption">Original image</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/pug_low_freq.jpg">
+            <figcaption class="figcaption">Low frequencies</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/pug_high_freq.jpg">
+            <figcaption class="figcaption">High frequencies</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/pug_sharpened:unsharp_mask.jpg">
+            <figcaption class="figcaption">Sharpened, alpha=5</figcaption>
+        </figure>
+    </div>
+
+    <h4 style="text-align: center;">Bear Cookie</h4>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/cookie.jpg">
+            <figcaption class="figcaption">Original image</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/cookie_sharpened.jpg">
+            <figcaption class="figcaption">Sharpened image</figcaption>
+        </figure>
+    </div>
+
+    <h4 style="text-align: center;">Plushies</h4>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/bros.jpg">
+            <figcaption class="figcaption">Original image</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/bros_sharpened.jpg">
+            <figcaption class="figcaption">Sharpened image</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        Here's an interesting experiement: let's blur an image then sharpen it, then compare it with the original image.
+    </p>
+
+    <h4 style="text-align: center;">Me</h4>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/me.jpg">
+            <figcaption class="figcaption">Original Image</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/me_blurred.jpg">
+            <figcaption class="figcaption">Low Frequencies</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/me_blurred_then_sharpened.jpg">
+            <figcaption class="figcaption">High Frequencies</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        The sharpened image definitely doesn't look blurry anymore, but if we look closely, the image seems to have lost
+        some
+        fine details and looks more "choppy". But overall an decent restoration!
+    </p>
+
+    <h3>Part 2.2 | Hybrid Images </h3>
+
+    <p>
+        A <strong>hybrid image</strong> is an optical illusion where you see one image close up and a different image
+        far away. We can
+        create hybrid images by layering the high frequencies of one image with the low frequencies of another image.
+        Since high frequencies can be seen better close up and low frequencies from far away, we achieve this cool
+        morphing effect.
+
+    </p>
+    <p>
+        We will isolate the high and low frequencies of an image using Gaussian filters as before. The kernal size
+        and standard deviation of the Gaussian filter we use determines the "cutoff frequency"
+        in the images. Roughly, this means that the low frequency image will include all frequencies below the cutoff
+        while the high frequency image will include all frequencies above the same cutoff. Choosing a higher kernal size
+        and
+        standard deviation lowers the cutoff frequency, and vice versa. Finding a balance is important for an effective
+        hybrid image.
+    </p>
+
+    <h4 style="text-align: center;">Derek and Nutmeg</h4>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/derek.jpg">
+            <figcaption class="figcaption">Original Derek</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/derek_low_freq.jpg">
+            <figcaption class="figcaption">Low frequency Derek</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/nutmeg.jpg">
+            <figcaption class="figcaption">Original Nutmeg</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/nutmeg_high_freq.jpg">
+            <figcaption class="figcaption">High frequency Nutmeg</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/derek_nutmeg_hybrid.jpg">
+            <figcaption class="figcaption">Hybrid</figcaption>
+        </figure>
+    </div>
+
+    <h4 style="text-align: center;">Young and current Ethan (me)</h4>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/old.PNG">
+            <figcaption class="figcaption">Original current Ethan</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/old_low_freq.jpg">
+            <figcaption class="figcaption">Low frequency current Ethan</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/young.PNG">
+            <figcaption class="figcaption">Original young Ethan</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/young_high_freq.jpg">
+            <figcaption class="figcaption">High frequency young Ethan</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/ethan_hybrid.jpg">
+            <figcaption class="figcaption">Hybrid</figcaption>
+        </figure>
+    </div>
+
+    <h4 style="text-align: center;">Gojo and Levi</h4>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/gojo.jpg">
+            <figcaption class="figcaption">Original Gojo</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/gojo_low_freq.jpg">
+            <figcaption class="figcaption">Low frequency Gojo</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/levi.jpg">
+            <figcaption class="figcaption">Original Levi</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/levi_high_freq.jpg">
+            <figcaption class="figcaption">High frequency Luffy</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/levi_gojo_hybrid.jpg">
+            <figcaption class="figcaption">Hybrid</figcaption>
+        </figure>
+    </div>
+
+    <p>This one is my favorite, so here are the images in the Fourier domain!</p>
+    <div class="container">
+        <figure class="image">
+            <img src="media/gojo_fourier.jpg">
+            <figcaption class="figcaption">Original Gojo</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/gojo_low_freq_fourier.jpg">
+            <figcaption class="figcaption">Low frequency Gojo</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/levi_fourier.jpg">
+            <figcaption class="figcaption">Original Levi</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/levi_high_freq_fourier.jpg">
+            <figcaption class="figcaption">High Frequency Levi</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/levi_gojo_hybrid_fourier.jpg">
+            <figcaption class="figcaption">Hybrid</figcaption>
+        </figure>
+    </div>
+
+    <p>In the Fourier domain, the hybrid image looks very similar to the original Levi. However, you can also see some
+        patterns from the original Gojo in the hybrid, especially in lower frequencies. This aligns with our
+        understanding of a hybrid image as a combination of high and low frequencies from different images.</p>
+
+    <h4 style="text-align: center;">Michael Jordan and Kobe Bryant</h4>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/mj.png">
+            <figcaption class="figcaption">Original MJ</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/mj_low_freq.jpg">
+            <figcaption class="figcaption">Low frequency MJ</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/kobe.png">
+            <figcaption class="figcaption">Original Kobe</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/kobe_high_freq.jpg">
+            <figcaption class="figcaption">High frequency Kobe</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/kobe_mj_hybrid.jpg">
+            <figcaption class="figcaption">Hybrid</figcaption>
+        </figure>
+    </div>
+
+    <h4 style="text-align: center;">[Bells and Whistles] Using Color!</h4>
+
+    <p>
+        I would say this one was a failure, since there are great structural differences between the two images (the
+        ball and jersey number are aligned, but their heads are not). It is a bit hard to see Kobe close up in the
+        hybrid, so let's try adding color to Kobe's high
+        frequency image.
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/kobe.png">
+            <figcaption class="figcaption">Original Kobe</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/kobe_high_freq_colored.jpg">
+            <figcaption class="figcaption">High frequency Kobe (colored)</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/kobe_mj_hybrid_colored.jpg">
+            <figcaption class="figcaption">Hybrid (colored)</figcaption>
+        </figure>
+    </div>
+
+    <p>Although slight, Kobe is easier to see up close now. Color is an additional visual
+        queue that we are looking at Kobe when up close (for example, the purple and yellow Lakers jersey).</p>
+
+    <h3>Part 2.3 | Gaussian and Laplacian Stacks</h3>
+
+    <p>
+        Let's further explore the frequency representation of images through
+        <strong>Gaussian stacks</strong> and <strong>Laplacian stacks</strong>.
+    </p>
+
+    <p>
+        First, a <strong>Gaussian stack</strong>
+        for an image is a series of increasingly blurry images, where each image comes from applying the same Gaussian
+        low-pass filter on the previous image. Intuitively, on each step, we eliminate some range of high frequencies in
+        the image, so we can conceptualize a Gaussian stack as the original image progressively losing its high
+        frequencies.
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/apple_im_gstack[0].jpg">
+            <figcaption class="figcaption">Gaussian stack [0]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/apple_im_gstack[1].jpg">
+            <figcaption class="figcaption">Gaussian stack [1]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/apple_im_gstack[2].jpg">
+            <figcaption class="figcaption">Gaussian stack [2]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/apple_im_gstack[3].jpg">
+            <figcaption class="figcaption">Gaussian stack [3]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/apple_im_gstack[4].jpg">
+            <figcaption class="figcaption">Gaussian stack [4]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/apple_im_gstack[5].jpg">
+            <figcaption class="figcaption">Gaussian stack [5]</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/orange_im_gstack[0].jpg">
+            <figcaption class="figcaption">Gaussian stack [0]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/orange_im_gstack[1].jpg">
+            <figcaption class="figcaption">Gaussian stack [1]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/orange_im_gstack[2].jpg">
+            <figcaption class="figcaption">Gaussian stack [2]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/orange_im_gstack[3].jpg">
+            <figcaption class="figcaption">Gaussian stack [3]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/orange_im_gstack[4].jpg">
+            <figcaption class="figcaption">Gaussian stack [4]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/orange_im_gstack[5].jpg">
+            <figcaption class="figcaption">Gaussian stack [5]</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        Second, a <strong>Laplacian stack</strong>
+        for an image is a series of images that captures a specific frequency range. Taking an oversimplified example,
+        suppose an image has frequencies spanning [0, 10] pixels. A Laplacian stack with 3 levels could have the first
+        image capturing the frequencies in [7, 10], the second captures [4, 7], etc. and the third image capturing the
+        remaining frequencies [0, 4]. Intuitively, a Laplacian stack divides the frequency range of an image into
+        "bands" of frequencies, so we can conceptualize a Laplacian stack as the original image decomposed into
+        progressively lower frequency ranges.
+    </p>
+
+    <p>
+        We can build a Laplacian stack by first creating a Gaussian stack, then subtracting adjacent entries in the
+        Gaussian stack.
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/apple_im_stack[0].jpg">
+            <figcaption class="figcaption">Laplacian stack [0]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/apple_im_stack[1].jpg">
+            <figcaption class="figcaption">Laplacian stack [1]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/apple_im_stack[2].jpg">
+            <figcaption class="figcaption">Laplacian stack [2]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/apple_im_stack[3].jpg">
+            <figcaption class="figcaption">Laplacian stack [3]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/apple_im_stack[4].jpg">
+            <figcaption class="figcaption">Laplacian stack [4]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/apple_im_stack[5].jpg">
+            <figcaption class="figcaption">Laplacian stack [5]</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/orange_im_stack[0].jpg">
+            <figcaption class="figcaption">Laplacian stack [0]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/orange_im_stack[1].jpg">
+            <figcaption class="figcaption">Laplacian stack [1]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/orange_im_stack[2].jpg">
+            <figcaption class="figcaption">Laplacian stack [2]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/orange_im_stack[3].jpg">
+            <figcaption class="figcaption">Laplacian stack [3]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/orange_im_stack[4].jpg">
+            <figcaption class="figcaption">Laplacian stack [4]</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/orange_im_stack[5].jpg">
+            <figcaption class="figcaption">Laplacian stack [5]</figcaption>
+        </figure>
+    </div>
+
+    <h3>Part 2.4 | Multiresolution Blending</h3>
+
+    <p>
+        What can we do with these stacks? One cool application is <strong>multiresolution blending</strong>, or the
+        seamless blending of 2 images.
+    </p>
+
+    <p>
+        We want to merge an apple and orange to
+        create an 'oraple'. We need a <strong>mask</strong> to define the place we want to blend the images together,
+        such as the vertical middle line. Then, we want to build up our blended image by considering different
+        frequency bands separately. For high frequency bands, we apply a sharp mask to the sub-band image, and for low
+        frequency bands, we apply a blurry mask to the sub-band image.
+    </p>
+
+    <p>
+        Intuitively, this makes sense because it is
+        natural to blend two images by their low frequency structure rather than high frequency details. That is, it
+        would be better to blend the fruits by their smooth surfaces (low frequency) rather than their unique textures
+        (high frequency).
+    </p>
+
+    <div>
+        <p>The multiresolution blending algorithm is as follows:</p>
+        <ol>
+            <li>Inputs: <code>image1</code>, <code>image2</code>, <code>mask1</code>, <code>mask2</code>, <code>n</code>
+            </li>
+            <li>Create a Gaussian stack with <code>n</code> layers for <code>mask1</code>, <code>mask2</code> (say
+                <code>gstack1</code>, <code>gstack2</code>)
+            </li>
+            <li>Create a Laplacian stack with <code>n</code> layers for <code>image1</code>, <code>image2</code> (say
+                <code>lstack1</code>, <code>lstack2</code>)
+            </li>
+            <li>For <code>i</code> from <code>1</code> to <code>n</code>, created a blended image =
+                <code>gstack1[i] * lstack1[i] + gstack2[i] * lstack2[i]</code>
+            </li>
+            <li>Return the summation of the <code>n</code> the blended images</li>
+        </ol>
+    </div>
+
+    <p>
+        From left to right, we have the following at each level: The left mask, the left frequencies * the left mask,
+        the blended image, the right frequencies * the right mask, the right mask. The top level shows the highest
+        frequencies while the bottom level shows the lowest frequencies. Below is the final image.
+    </p>
+
+    <h4 style="text-align: center;">Oraple</h4>
+
+    <div id="orapleWrapper"></div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/oraple.jpg">
+            <figcaption class="figcaption">Oraple</figcaption>
+        </figure>
+    </div>
+
+
+    <h4 style="text-align: center;">Orangiwi</h4>
+
+    <div id="orangiwiWrapper"></div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/orangiwi.jpg">
+            <figcaption class="figcaption">Orangiwi</figcaption>
+        </figure>
+    </div>
+
+    <h3 style="text-align: center;">Irregular Masks</h3>
+    <p style="text-align: center;">Now we're going to try the same process but with an irregular mask (one that isn't
+        horizontal/vertical).</p>
+
+    <h4 style="text-align: center;">Epic Jumpshot</h4>
+
+    <div id="epicJumpshotWrapper"></div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/epicJumpshot.jpg">
+            <figcaption class="figcaption">Epic Jumpshot</figcaption>
+        </figure>
+    </div>
+
+    <script>
+
+        const groups = ["oraple", "orangiwi", "epicJumpshot"]
+
+        for (var groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+            let currGroup = groups[groupIndex];
+
+            for (let i = 0; i < 6; i++) {
+                const container = document.createElement("div");
+                container.className = "container";
+
+                for (let j = 0; j < 5; j++) {
+                    const figure = document.createElement("figure");
+                    figure.className = "blend-figure";
+
+                    const img = document.createElement("img");
+                    img.className = "blend-img";
+                    if (j == 0) {
+                        img.src = `media/${currGroup}_left_mask_${i}.jpg`;
+                    } else if (j == 1) {
+                        img.src = `media/${currGroup}_left_${i}.jpg`;
+                    } else if (j == 2) {
+                        img.src = `media/${currGroup}_${i}.jpg`;
+                    } else if (j == 3) {
+                        img.src = `media/${currGroup}_right_${i}.jpg`;
+                    } else {
+                        img.src = `media/${currGroup}_right_mask_${i}.jpg`;
+                    }
+
+                    const figcaption = document.createElement("figcaption");
+                    figcaption.className = "figcaption";
+
+                    figure.appendChild(img);
+                    figure.appendChild(figcaption);
+                    container.appendChild(figure);
+                }
+
+                document.getElementById(`${currGroup}Wrapper`).appendChild(container);
+            }
+
+            const container = document.createElement("div");
+            container.className = "container";
+
+            document.getElementById(`${currGroup}Wrapper`).appendChild(container);
+        }
+    </script>
+
+    <h2>Conclusion</h2>
+
+    <p style="margin-bottom: 100px">This project was a ton of fun! The most important thing I learned is that
+        interpreting an image as a bunch of low and high frequency components can be helpful in building intuition on
+        how
+        image processing techniques actually work.
+    </p>
+
+</body>
