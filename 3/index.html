@@ -1,0 +1,432 @@
+<!-- Outline:
+
+Part 1-3: Morph Sequence
+- For each 2-image morph, display
+    - Image 1
+    - Image 1 keypoints
+    - Image 2 keypoints
+    - Image 2
+    - Average keypoints and triangulation
+    - Midway face
+    - Morph gif
+- For the multi-image morph, display
+    - All images
+    - Average keypoints and triangulation for each step
+    - Morph gif
+
+Part 4: Mean Face
+- Mean face, happy
+- 2 example faces morphed into happy shape
+- Mean face, neutral
+- 2 example faces morphed into neutral shape
+- Ethan morphed into neutral shape
+- Neutral morphed into Ethan shape
+
+Part 5: Caricature
+- Ethan with keypoints
+- Neutral with keypoints
+- Difference vectors
+- Ethan caricature
+-->
+
+<!DOCTYPE html>
+
+<head>
+    <title>CS180 Project 3: Face Morphing</title>
+</head>
+<style>
+    .container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    figure {
+        display: table;
+        margin-left: 5px;
+        margin-right: 5px;
+    }
+
+    img {
+        max-height: 250px;
+        max-width: 220px;
+        display: block;
+        border: 2px solid black
+    }
+
+    figcaption {
+        display: table-caption;
+        caption-side: bottom;
+        font-size: 15px;
+        text-align: center;
+        color: #606060
+    }
+
+    body {
+        padding-left: 15%;
+        padding-right: 15%
+    }
+
+    h1 {
+        padding-bottom: 20px;
+    }
+
+    h2 {
+        padding-top: 30px;
+    }
+
+    h3 {
+        padding-top: 20px;
+    }
+</style>
+
+<body style="font-family: Arial, sans-serif">
+    <h1 style="text-align: center;">CS180 Project 3: Face Morphing</h1>
+    <p style="text-align: center;">By Ethan Kuo</p>
+
+    <h2>Introduction</h2>
+    <p>
+        <strong>Face morphing</strong> is a technique used to transform one face into another. It involves blending the
+        shape and
+        appearance (texture) of two faces. In this project, we first morph one face into another through a gradual
+        sequence. Then, we compute "average faces" for a population. Finally, we build a caricature by extrapolating
+        features.
+    </p>
+
+    <h2>Building a Morph Sequence</h2>
+    <h3>Part 1: Defining Correspondances</h3>
+
+    <p>Suppose we want to morph these two faces: me and my favorite basketball player.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/ethan.jpg">
+            <figcaption class="figcaption">Ethan Kuo</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/shai.jpg">
+            <figcaption class="figcaption">Shai Gilgeous-Alexander</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        First, choose key points on both images that correspond to each other. Here, I do this manually.
+        Note that each point uniquely coresponds to another point in the other image.
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/ethan_keypoints.png">
+            <figcaption class="figcaption">Ethan Kuo with key points</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/shai_keypoints.png">
+            <figcaption class="figcaption">Shai Gilgeous-Alexander with key points</figcaption>
+        </figure>
+    </div>
+
+    <p>We then find the midpoints of each corresponding pair of key points to arrive at an average geometry.
+        Essentially, this captures the
+        average facial structure of the images. We then run the <strong>Delaunay triangulation algorithm</strong> on
+        this average geometry to produce many triangles.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/ethan_shai_triangulation.png">
+            <figcaption class="figcaption">Triangulation of average geometry</figcaption>
+        </figure>
+    </div>
+
+    <h3>Part 2: Computing the Midway Face</h3>
+
+    <p>Why triangles? Because we can build a midway image from the average geometry, triangle by triangle. Note that
+        this
+        triangulation that was computed on the average geomtry can be mapped to each image. The high level idea is that
+        for each triangle in the average geometry, we color that triangle by combining the colors in the
+        corresponding triangles in each image.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/ethan_triangulation.png">
+            <figcaption class="figcaption">Triangulation of Ethan Kuo</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/shai_triangulation.png">
+            <figcaption class="figcaption">Triangulation of Shai Gilgeous-Alexander</figcaption>
+        </figure>
+    </div>
+
+    <p>More precisely, we will use <strong>inverse warping</strong>, which involves computing an affine transformation
+        matrix that maps a triangle in the target geometry to the corresponding triangle in the source geometry. Then,
+        we apply this matrix to each
+        coordinate
+        within the target triangle to get a corresponding pixel within the source triangle.
+        Since this is a linear transformation, the
+        preimage is not guaranteed to be an integer coordinate, so I used <strong>bilinear interpolation</strong> to
+        assign a color to non-integer coordinates using its neighbors. Now each pixel has a preimage in both images, we
+        simply take the average RGB pixel value as its color.
+    </p>
+
+    <p>Conceptually, I like to think of inverse warping as a way to peer into a source image and bring color into the
+        target image.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/ethan.jpg">
+            <figcaption class="figcaption">Ethan Kuo</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/ethan_shai[0.5:0.5]_intermediate.jpg">
+            <figcaption class="figcaption">Midway face</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/shai.jpg">
+            <figcaption class="figcaption">Shai Gilgeous-Alexander</figcaption>
+        </figure>
+    </div>
+
+    <h3>Part 3: The Morph Sequence</h3>
+
+    <p>Note for the midway face, we took the average of the geometries and the colors. We can generalize this using
+        weighted averages to create intermediate faces. Combining them all, we arrive at a morph sequence!</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/ethan_to_shai.gif">
+            <figcaption class="figcaption">Morph sequence</figcaption>
+        </figure>
+    </div>
+
+    <p>Here are some more morph sequences I created!</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/tzuyu.jpg">
+            <figcaption class="figcaption">Tzuyu</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/tzuyu_to_minjoo.gif">
+            <figcaption class="figcaption">Morph sequence</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/minjoo.jpg">
+            <figcaption class="figcaption">Minjoo</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/lia.jpg">
+            <figcaption class="figcaption">Lia</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/lia_to_julie.gif">
+            <figcaption class="figcaption">Morph sequence</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/julie.jpg">
+            <figcaption class="figcaption">Julie</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/ethan_young.jpg">
+            <figcaption class="figcaption">Young Ethan</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/ethan_young_to_ethan_now.gif">
+            <figcaption class="figcaption">Morph sequence</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/ethan_now.jpg">
+            <figcaption class="figcaption">Current Ethan</figcaption>
+        </figure>
+    </div>
+
+    <h3>[Bells and Whistles] Themed morphing video</h3>
+    <p>Here, I made a morph sequence between all 5 members of my family! The idea is similar to a 2-face morph, except I
+        defined and triangulated separate correspondances for each adjacent pair of images, essentially stringing
+        4 morph sequences together.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/ethan_kuo.jpg">
+            <figcaption class="figcaption">Ethan</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/ehong_kuo.jpg">
+            <figcaption class="figcaption">Ehong</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/dad_kuo.jpg">
+            <figcaption class="figcaption">Dad</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/mom_kuo.jpg">
+            <figcaption class="figcaption">Mom</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/ejean_kuo.jpg">
+            <figcaption class="figcaption">Ejean</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/ethan_kuo_ehong_kuo_triangulation.png">
+            <figcaption class="figcaption">Triangulation for Ethan-Ehong</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/ehong_kuo_dad_kuo_triangulation.png">
+            <figcaption class="figcaption">Triangulation for Ehong-Dad</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/dad_kuo_mom_kuo_triangulation.png">
+            <figcaption class="figcaption">Triangulation for Dad-Mom</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/mom_kuo_ejean_kuo_triangulation.png">
+            <figcaption class="figcaption">Triangulation for Mom-Ejean</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/ethan_kuo_to_ehong_kuo_to_dad_kuo_to_mom_kuo_to_ejean_kuo.gif">
+            <figcaption class="figcaption">Morph sequence</figcaption>
+        </figure>
+    </div>
+
+    <h2>Mean Faces</h2>
+
+    <h3>Part 4: The Average Brazilian Face</h3>
+
+    <p>Using the FEI dataset, which consists of 400 faces of Brazilian people, we can compute an average face. This
+        actually involves 2 averages: the average geometry, and the average texture. The average geometry is simply the
+        sum of all geometries divided by the count. Then we bring textureinto the mean geometry through inverse
+        warping, equally combining pixel intensities from every face.
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/neutral.jpg">
+            <figcaption class="figcaption">Mean neutral face</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/happy.jpg">
+            <figcaption class="figcaption">Mean happy face</figcaption>
+        </figure>
+    </div>
+
+    <p>Here are examples of faces morphed into mean geometries.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/100a.jpg">
+            <figcaption class="figcaption">Original face</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/100a_morphed_into_neutral.png">
+            <figcaption class="figcaption">Morphed into neutral</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/101a.jpg">
+            <figcaption class="figcaption">Original face</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/101a_morphed_into_neutral.png">
+            <figcaption class="figcaption">Morphed into neutral</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/100b.jpg">
+            <figcaption class="figcaption">Original face</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/100b_morphed_into_happy.png">
+            <figcaption class="figcaption">Morphed into happy</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/101b.jpg">
+            <figcaption class="figcaption">Original face</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/101b_morphed_into_happy.png">
+            <figcaption class="figcaption">Morphed into happy</figcaption>
+        </figure>
+    </div>
+
+    <p>For fun, I morphed myself into the average Brazilian neutral face geometry, and vice versa.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/ethan_grayscale_morphed_into_neutral.jpg">
+            <figcaption class="figcaption">Ethan morphed into neutral</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/neutral_morphed_into_ethan_grayscale.jpg">
+            <figcaption class="figcaption">Neutral face morphed into Ethan</figcaption>
+        </figure>
+    </div>
+
+    <h3>Part 5: Caricature</h3>
+
+    <p>So far, we've only been interpolating between faces, or finding some intermediate between the two. We can also
+        exterpolate between faces to accentuate unique features.
+    </p>
+
+    <p>Here, I wanted to emphasize my own facial features relative to the average neutral face. Treating the
+        correspondences selected on my face as some vector <code>p</code> and the correspondences on the
+        average expression face as some vector <code>q</code>, I calculated <code>p + &alpha;(p - q)</code> as the
+        target
+        correspondences, computed the extrapolated triangulation, and then warped my face to these targets.
+    </p>
+
+    <p>Intuitively, <code>(p-q)</code> is a bunch of difference vectors that each capture how much a feature deviates
+        from the mean. When we add some multiple of these vectors back into the image, we emphasize these deviations.
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/ethan_grayscale_keypoints.png">
+            <figcaption class="figcaption">Ethan key points</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/neutral_keypoints.png">
+            <figcaption class="figcaption">Neutral key points</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/difference_vectors.png">
+            <figcaption class="figcaption">Difference vectors</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/ethan_grayscale_neutral_caracature[0].jpg">
+            <figcaption class="figcaption">&alpha; = 0</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/ethan_grayscale_neutral_caracature[0.5].jpg">
+            <figcaption class="figcaption">&alpha; = 0.5</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/ethan_grayscale_neutral_caracature[1].jpg">
+            <figcaption class="figcaption">&alpha; = 1</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/ethan_grayscale_neutral_caracature[1.5].jpg">
+            <figcaption class="figcaption">&alpha; = 1.5</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/ethan_grayscale_neutral_caracature[2].jpg">
+            <figcaption class="figcaption">&alpha; = 2</figcaption>
+        </figure>
+    </div>
+
+    <p>Here, you can see my unique features like a low nose and pointed eyes being exaggerated!</p>
+
+</body>
