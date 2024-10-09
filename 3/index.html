@@ -139,11 +139,11 @@ Part 5: Caricature
 
     <h3>Part 2: Computing the Midway Face</h3>
 
-    <p>Why triangles? Because we can build a midway image from the average geometry, triangle by triangle. Note that
-        this
-        triangulation that was computed on the average geomtry can be mapped to each image. The high level idea is that
-        for each triangle in the average geometry, we color that triangle by combining the colors in the
-        corresponding triangles in each image.</p>
+    <p>Why triangles? Because we can build a midway image by filling in the average geometry with color, triangle by
+        triangle. Note that the triangulation can also be applied to each source image, meaning that every triangle in
+        the average geometry corresponds to a triangle in each source image. The high level idea is that
+        the color of each triangle will be the average color of the
+        corresponding triangles in all source images.</p>
 
     <div class="container">
         <figure class="image">
@@ -163,7 +163,8 @@ Part 5: Caricature
         within the target triangle to get a corresponding pixel within the source triangle.
         Since this is a linear transformation, the
         preimage is not guaranteed to be an integer coordinate, so I used <strong>bilinear interpolation</strong> to
-        assign a color to non-integer coordinates using its neighbors. Now each pixel has a preimage in both images, we
+        assign a color to non-integer coordinates using its neighbors. Each pixel has a preimage in each
+        source image, and we
         simply take the average RGB pixel value as its color.
     </p>
 
@@ -197,7 +198,8 @@ Part 5: Caricature
         </figure>
     </div>
 
-    <p>Here are some more morph sequences I created!</p>
+    <p>Here are some more morph sequences I created! I think these ones are cleaner than the previous one because the
+        source images are similar to begin with.</p>
 
     <div class="container">
         <figure class="image">
@@ -304,7 +306,7 @@ Part 5: Caricature
 
     <p>Using the FEI dataset, which consists of 400 faces of Brazilian people, we can compute an average face. This
         actually involves 2 averages: the average geometry, and the average texture. The average geometry is simply the
-        sum of all geometries divided by the count. Then we bring textureinto the mean geometry through inverse
+        sum of all geometries divided by the count. Then we bring texture into the mean geometry through inverse
         warping, equally combining pixel intensities from every face.
     </p>
 
@@ -375,7 +377,7 @@ Part 5: Caricature
     <h3>Part 5: Caricature</h3>
 
     <p>So far, we've only been interpolating between faces, or finding some intermediate between the two. We can also
-        exterpolate between faces to accentuate unique features.
+        extrapolate between faces to accentuate unique features.
     </p>
 
     <p>Here, I wanted to emphasize my own facial features relative to the average neutral face. Treating the
