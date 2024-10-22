@@ -1,0 +1,331 @@
+<!-- Outline:
+
+1. Taking pictures
+- original photos (6)
+2. Recover homographies
+- math formula + conceptual explanation
+3. Warp the images
+- image rectification (2)
+4. Blend into a mosaic
+- w/o blending (3)
+- w/ blending (3)
+-->
+
+<!DOCTYPE html>
+
+<head>
+    <title>CS180 Project 4: Stitching Photo Mosaics</title>
+</head>
+<style>
+    .container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    figure {
+        display: table;
+        margin-left: 5px;
+        margin-right: 5px;
+    }
+
+    img {
+        max-height: 250px;
+        max-width: 220px;
+        display: block;
+        border: 2px solid black
+    }
+
+    .bigimg {
+        max-height: 500px;
+        max-width: 440px;
+        display: block;
+        border: 2px solid black
+    }
+
+    figcaption {
+        display: table-caption;
+        caption-side: bottom;
+        font-size: 15px;
+        text-align: center;
+        color: #606060
+    }
+
+    body {
+        padding-left: 15%;
+        padding-right: 15%
+    }
+
+    h1 {
+        padding-bottom: 20px;
+    }
+
+    h2 {
+        padding-top: 30px;
+    }
+
+    h3 {
+        padding-top: 20px;
+    }
+</style>
+
+<body style="font-family: Arial, sans-serif">
+    <h1 style="text-align: center;">CS180 Project 4: Stitching Photo Mosaics</h1>
+    <p style="text-align: center;">By Ethan Kuo</p>
+
+    <h2>Part A: Image Warping and Mosaicing</h2>
+
+    <h3>Introduction</h3>
+    <p>
+
+        A <strong>mosaic</strong> in the context of image processing is an image created by seamlessly stitching
+        together multiple
+        images, usually to create a larger panoramic view or to blend two images into a single composite. In the first
+        part of this project, we will create mosaics of 2 photos.
+    </p>
+
+    <h3>Shoot the photos</h3>
+
+    <p>Here are the photos we will build mosaics from. Each pair of photos is taken from the same center of projection
+        and has around 50% overlap.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/balcony1.JPG">
+            <figcaption class="figcaption">Balcony, left</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/balcony2.JPG">
+            <figcaption class="figcaption">Balcony, right</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/livingroom1.JPG">
+            <figcaption class="figcaption">Living room, low angle</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/livingroom2.JPG">
+            <figcaption class="figcaption">Living room, high angle</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/shoes1.JPG">
+            <figcaption class="figcaption">Shoes, high angle</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/shoes2.JPG">
+            <figcaption class="figcaption">Shoes, low angle</figcaption>
+        </figure>
+    </div>
+
+    <h3>Recover homographies</h3>
+    <p>A <strong>homography</strong> is a transformation that can change the perspective of 2 images captured from the
+        same center of projection. This will be used to transform all images of a mosaic into the same projection plane.
+    </p>
+
+    <p>First, we need to define point correspondances between the two images.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/balcony1_points.png">
+            <figcaption class="figcaption">Balcony, left</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/balcony2_points.png">
+            <figcaption class="figcaption">Balcony, right</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/livingroom1_points.png">
+            <figcaption class="figcaption">Living room, low angle</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/livingroom2_points.png">
+            <figcaption class="figcaption">Living room, high angle</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/shoes1_points.png">
+            <figcaption class="figcaption">Shoes, high angle</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/shoes2_points.png">
+            <figcaption class="figcaption">Shoes, low angle</figcaption>
+        </figure>
+    </div>
+
+    <p>Next, we compute the <code>3x3</code> homography matrix that maps one set of points to the other. We want
+        to recover the matrix such that:
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/homography_math1.png">
+        </figure>
+    </div>
+
+    <p>Expanding this out, we get the following system of 2 equations:</p>
+    <div class="container">
+        <figure class="image">
+            <img src="media/homography_math2.png" style="max-height: 500px; max-width: 440px;">
+        </figure>
+    </div>
+
+    <p>Note
+        that there are 8 unknowns, so technically we only need 4 point correspondances for a solution (each
+        correspondance yields 2 equations). However, I picked
+        more correspondances and then applied <strong>least squares</strong> to get a more stable solution.</p>
+
+    <h3>Warp the images</h3>
+
+    <p>Simplying applying the homography <code>H</code> to every point in an image will not suffice since we may get
+        holes in the warped image. So, I used <strong>inverse warping</strong> just as in Project 3. First, I computed
+        the bounding box of the warped image by applying <code>H</code> to the four corners of the image. Then, I
+        applied the inverse of <code>H</code> to every point in the bounding box to "pull" the color for that pixel from
+        the preimage. Since homographies often produce an irregular bounding box shape, it is entirely possible for the
+        preimage to be outside
+        the source image; in these cases, we simply make that pixel black.</p>
+
+    <p>Let's demonstrate the warping algorithmm with <strong>image rectification</strong>, or "straightening out" some
+        part of an image into a
+        rectangle. For example, each of these images has a rectangular component:
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/ipad.jpg">
+            <figcaption class="figcaption">iPad</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/art.jpg">
+            <figcaption class="figcaption">Art</figcaption>
+        </figure>
+    </div>
+
+    <p>
+        We compute the homography matrix that maps the corners of the rectangular object into a true dimensions of the
+        rectangular shape, such as <code>[0,0], [1,0], [1,1], [0,1]</code>. Then, we run the above warping algorithm.
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="bigimg" src="media/rectified_ipad.jpg">
+            <figcaption class="figcaption">iPad, rectified</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/rectified_art.jpg">
+            <figcaption class="figcaption">Art, rectified</figcaption>
+        </figure>
+    </div>
+
+    <h3>Blending into a mosaic</h3>
+    <p>For 2-image mosaics, the simple approach I took is to warp the perspective of the second image into the first.
+        Then, we
+        align the first image with the warped second image and average the pixel values when there is overlap.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/balcony1.JPG">
+            <figcaption class="figcaption">Balcony, left</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/balcony2.JPG">
+            <figcaption class="figcaption">Balcony, right</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/balcony_unblended_mosaic.jpg">
+            <figcaption class="figcaption">Balcony, mosaic</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/livingroom1.JPG">
+            <figcaption class="figcaption">Living room, low angle</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/livingroom2.JPG">
+            <figcaption class="figcaption">Living room, high angle</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/livingroom_unblended_mosaic.jpg">
+            <figcaption class="figcaption">Living room, mosaic</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/shoes1.JPG">
+            <figcaption class="figcaption">Shoes, high angle</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/shoes2.JPG">
+            <figcaption class="figcaption">Shoes, low angle</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/shoes_unblended_mosaic.jpg">
+            <figcaption class="figcaption">Shoes, mosaic</figcaption>
+        </figure>
+    </div>
+
+
+    <p>Notice the edges where the overlap starts and ends. The photos may have different exposures, so simply averaging
+        pixel intensities will result in stark changes.</p>
+
+    <p>I used two-band blending to make a more seamless transition. First, I computed the <strong>distance
+            transform</strong> of each
+        image, which is a mask that records the distance of each point to the nearest edge. Intuitively, an image's
+        middle area is its focus and should we weighted higher, so the distance transform can be used as weights. Here
+        are the distance transforms for the balcony images:</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/balcony1_distance_transform.png">
+            <figcaption class="figcaption">Balcony, left</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/balcony2_distance_transform.png">
+            <figcaption class="figcaption">Balcony, right</figcaption>
+        </figure>
+    </div>
+
+    <p>Then, we will blend the low and high frequencies separately.
+    </p>
+    <p>
+        Lower frequencies capture image information like backgrounds and big-picture structure, so taking a weighted
+        average makes sense. The low-pass images are blended according to a weighted linear combination of the two
+        images using the distance
+        transforms as weights.</p>
+    <p>
+        Higher frequencies capture fine details in an image. Since the details in an image will likely be more accurate
+        when they are in the center of the image, we will simply adopt the high frequencies from the more focused
+        image. The high-pass images are blended depending on the maximum value of the corresponding distance transforms.
+    </p>
+
+    <p>Here are the blended mosaics:</p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="bigimg" src="media/balcony_mosaic.jpg">
+            <figcaption class="figcaption">Balcony, mosaic</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/livingroom_mosaic.jpg">
+            <figcaption class="figcaption">Living room, mosaic</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/shoes_mosaic.jpg">
+            <figcaption class="figcaption">Shoes, mosaic</figcaption>
+        </figure>
+    </div>
+
+
+</body>
