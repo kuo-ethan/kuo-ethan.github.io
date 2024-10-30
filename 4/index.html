@@ -43,6 +43,13 @@
         border: 2px solid black
     }
 
+    .superbigimg {
+        max-height: 1000px;
+        max-width: 1000px;
+        display: block;
+        border: 2px solid black
+    }
+
     figcaption {
         display: table-caption;
         caption-side: bottom;
@@ -124,7 +131,7 @@
 
     <h3>Recover homographies</h3>
     <p>A <strong>homography</strong> is a transformation that can change the perspective of 2 images captured from the
-        same center of projection. This will be used to transform all images of a mosaic into the same projection plane.
+        same center of projection. This will be used to transform all images of a mosaic into the same point of view.
     </p>
 
     <p>First, we need to define point correspondances between the two images.</p>
@@ -180,21 +187,22 @@
     </div>
 
     <p>Note
-        that there are 8 unknowns, so technically we only need 4 point correspondances for a solution (each
+        that there are 8 unknowns in the homography matrix, so technically we only need 4 point correspondances for a
+        solution (each
         correspondance yields 2 equations). However, I picked
         more correspondances and then applied <strong>least squares</strong> to get a more stable solution.</p>
 
     <h3>Warp the images</h3>
 
     <p>Simplying applying the homography <code>H</code> to every point in an image will not suffice since we may get
-        holes in the warped image. So, I used <strong>inverse warping</strong> just as in Project 3. First, I computed
+        holes in the warped image. So, I used <strong>inverse warping</strong> as in Project 3. First, I computed
         the bounding box of the warped image by applying <code>H</code> to the four corners of the image. Then, I
         applied the inverse of <code>H</code> to every point in the bounding box to "pull" the color for that pixel from
         the preimage. Since homographies often produce an irregular bounding box shape, it is entirely possible for the
         preimage to be outside
         the source image; in these cases, we simply make that pixel black.</p>
 
-    <p>Let's demonstrate the warping algorithmm with <strong>image rectification</strong>, or "straightening out" some
+    <p>Let's demonstrate the warping algorithm with <strong>image rectification</strong>, or "straightening out" some
         part of an image into a
         rectangle. For example, each of these images has a rectangular component:
     </p>
@@ -237,12 +245,12 @@
             <figcaption class="figcaption">Balcony, left</figcaption>
         </figure>
         <figure class="image">
-            <img src="media/balcony2.JPG">
-            <figcaption class="figcaption">Balcony, right</figcaption>
-        </figure>
-        <figure class="image">
             <img class="bigimg" src="media/balcony_unblended_mosaic.jpg">
             <figcaption class="figcaption">Balcony, mosaic</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/balcony2.JPG">
+            <figcaption class="figcaption">Balcony, right</figcaption>
         </figure>
     </div>
 
@@ -252,12 +260,12 @@
             <figcaption class="figcaption">Living room, low angle</figcaption>
         </figure>
         <figure class="image">
-            <img src="media/livingroom2.JPG">
-            <figcaption class="figcaption">Living room, high angle</figcaption>
-        </figure>
-        <figure class="image">
             <img class="bigimg" src="media/livingroom_unblended_mosaic.jpg">
             <figcaption class="figcaption">Living room, mosaic</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/livingroom2.JPG">
+            <figcaption class="figcaption">Living room, high angle</figcaption>
         </figure>
     </div>
 
@@ -266,18 +274,19 @@
             <img src="media/shoes1.JPG">
             <figcaption class="figcaption">Shoes, high angle</figcaption>
         </figure>
-        <figure class="image">
-            <img src="media/shoes2.JPG">
-            <figcaption class="figcaption">Shoes, low angle</figcaption>
-        </figure>
+
         <figure class="image">
             <img class="bigimg" src="media/shoes_unblended_mosaic.jpg">
             <figcaption class="figcaption">Shoes, mosaic</figcaption>
         </figure>
+        <figure class="image">
+            <img src="media/shoes2.JPG">
+            <figcaption class="figcaption">Shoes, low angle</figcaption>
+        </figure>
     </div>
 
 
-    <p>Notice the edges where the overlap starts and ends. The photos may have different exposures, so simply averaging
+    <p>Note the edges where the overlap starts and ends. The photos may have different exposures, so simply averaging
         pixel intensities will result in stark changes.</p>
 
     <p>I used two-band blending to make a more seamless transition. First, I computed the <strong>distance
@@ -297,10 +306,10 @@
         </figure>
     </div>
 
-    <p>Then, we will blend the low and high frequencies separately.
+    <p>Then, we will blend the low and high frequencies separately, hence a "two-band" approach..
     </p>
     <p>
-        Lower frequencies capture image information like backgrounds and big-picture structure, so taking a weighted
+        Lower frequencies capture big-picture information like backgrounds, so taking a simple weighted
         average makes sense. The low-pass images are blended according to a weighted linear combination of the two
         images using the distance
         transforms as weights.</p>
@@ -327,5 +336,253 @@
         </figure>
     </div>
 
+    <h2>Part B: Feature Matching for Auto-stitching</h2>
+
+    <h3>Introduction</h3>
+    <p>
+        Previously, I had to <i>manually</i> choose correspondance points between two images. In this part, we
+        will implement
+        an algorithm for <i>automatically</i> defining correspondances. On a high level, our algorithm will consider
+        "corners"
+        in both images and match corners that have similar features.
+    </p>
+
+    <p>Let's walk through the automatic feature matching algorithm on the balcony example.</p>
+
+    <h3>[1] Corner detection</h3>
+    <p>The <strong>Harris corner detection</strong> algorithm finds corners an image. Without going into excess detail
+        on the linear algebra, the algorithm builds a <code>2x2</code> matrix out of the gradient, which captures how
+        much the pixel changes in all directions. Intuitively, a corner is a pixel that changes value significantly in
+        all
+        directions, so the algorithm gives a high corner response score for corners whose matrices have large
+        eigenvalues</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/balcony1.JPG">
+            <figcaption class="figcaption">Left balcony</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/balcony_harris1.png">
+            <figcaption class="figcaption">Left balcony Harris corners</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/balcony2.JPG">
+            <figcaption class="figcaption">Right balcony</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/balcony_harris2.png">
+            <figcaption class="figcaption">Right balcony Harris corners</figcaption>
+        </figure>
+    </div>
+
+    <p>As you can see, there are many corners in an image, so we will need to narrow our search. </p>
+
+    <h3>[2] Adaptive Non-maximal Suppression</h3>
+
+    <p>The <strong>ANMS</strong> algorithm takes in Harris corners and chooses corners that 1) have a high Harris
+        response score and 2) are spatially distributed across the image. These are reasonable criteria because we want
+        our keypoints to be actually "good" corners and to span most of the image.</p>
+
+    <p>For each candidate corner, ANMS finds all corners that are "better" than that corner by margin, then
+        computes the distance to the nearest one. Then, it outputs the top <code>k</code> corners with the greatest
+        distance. Note that strong corners are rewarded since there will be fewer better corners it computes its
+        distance from, and corners distant from other corners are clearly rewarded. So this objective encodes the
+        criteria from above.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="bigimg" src="media/balcony_anms1.png">
+            <figcaption class="figcaption">Left balcony ANMS corners</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/balcony_anms2.png">
+            <figcaption class="figcaption">Right balcony ANMS corners</figcaption>
+        </figure>
+    </div>
+
+    <h3>[3] Feature descriptor extraction</h3>
+    <p>Now that we have points in both images, we want to match points that have similar <strong>features</strong>.
+        We'll start by defining these features by looking at the point's vicinity. First, we will apply a low-pass
+        filter over each image. Next, for each
+        point, we take the
+        <code>40x40</code> patch around the point, downsample it into an <code>8x8</code> patch (which observes minimal
+        aliasing
+        due to the low-pass filter), then normalize the patch to have a mean of 0 and a standard deviation of 1 to
+        standardize the matching process.
+    </p>
+
+    <p>Here are some example feature descriptors.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/roof_40x40.png">
+            <figcaption class="figcaption">40x40 patch</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/roof_8x8.png">
+            <figcaption class="figcaption">Downsampled 8x8 patch</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/roof_normalized.png">
+            <figcaption class="figcaption">Normalized 8x8 patch</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/tree_40x40.png">
+            <figcaption class="figcaption">40x40 patch</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/tree_8x8.png">
+            <figcaption class="figcaption">Downsampled 8x8 patch</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/tree_normalized.png">
+            <figcaption class="figcaption">Normalized 8x8 patch</figcaption>
+        </figure>
+    </div>
+
+    <h3>[4] Feature matching</h3>
+    <p>
+        We will match 2 interest points that have similar features, and here we define "similarity" as the L2 distance
+        between
+        their
+        feature patches. We could just match points to the point in the other image with the smallest distance, but this
+        is prone to mistake. For example, an interest point's actual correspondence in the other image may not have
+        been
+        selected as a corner Harris or ANMS, or an interest point may have multiple matches in the other image due to
+        repeating structures.
+
+    </p>
+    <p>To reduce mistakes, we will use <strong>Lowe's technique</strong>, which works on the
+        idea that if a feature truly matches, its nearest
+        neighbor should be significantly closer (in terms of similarity) than its second-nearest neighbor. If the
+        closest match is much
+        better than the second-best match, this suggests that it's likely a true match. But if the closest match and the
+        second-best match are very similar in distance, the match may be unreliable or ambiguous.</p>
+
+    <p>By only accepting matchings that have a significantly better nearest neighbor, we get the following matching:</p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="superbigimg" src="media/balcony_matching.png">
+            <figcaption class="figcaption">Balcony matching</figcaption>
+        </figure>
+
+    </div>
+
+    <p>Note that some matchings in the railing area are incorrect because the repeating pattern makes it difficult to
+        exactly match a corner. So Lowe's technique mitigates but does not fully resolve these mistakes.</p>
+
+    <h3>[5] Random Sample Consensus (RANSAC)</h3>
+
+    <p>We could build a homography using our current correspondances, but we could do better by computing the homography
+        out of the "best of the best" correspondances. <strong>RANSAC</strong> is a method for only keeping the
+        "inliers" in our group of correspondences. We loop over the following steps many times:</p>
+
+    <ol>
+        <li>Randomly sample 4 matchings and compute its exact homography</li>
+        <li>Apply this homography to all points im image 1</li>
+        <li>Record which points (inliers) get mapped very close to its corresponding point in image 2 as defined by its
+            matching
+        </li>
+    </ol>
+
+    <p>Lastly, we take the largest set of inliers we've ever seen as our final correspondences. Intuitively, the
+        homography
+        that yielded this largest set likely came from 4 accurate matchings, and so the inliers are likely accurate too.
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="superbigimg" src="media/balcony_ransac.png">
+            <figcaption class="figcaption">Balcony matching with RANSAC</figcaption>
+        </figure>
+
+    </div>
+
+    <p>From here, we will use the same
+        mosaic building algorithm as in the previous part! Let's compare the results:</p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="bigimg" src="media/balcony_mosaic.jpg">
+            <figcaption class="figcaption">Balcony mosaic, manual</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/balcony_mosaic_auto.jpg">
+            <figcaption class="figcaption">Balcony mosaic, automated</figcaption>
+        </figure>
+    </div>
+
+    <p>Both are very good, but the auto-stitched version actually has less skewing. This is very impressive, considering
+        I had spent a lot of time manually selecting correspondences down to the best pixel.</p>
+
+    <h3>More auto-stiched mosaics</h3>
+
+    <p>The auto-stitched mosaics and the manual mosaics for living room and shoes are almost identical.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="bigimg" src="media/livingroom_mosaic.jpg">
+            <figcaption class="figcaption">Living room mosaic, manual</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/livingroom_mosaic_auto.jpg">
+            <figcaption class="figcaption">Living room mosaic, automated</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img class="bigimg" src="media/shoes_mosaic.jpg">
+            <figcaption class="figcaption">Living room mosaic, manual</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/shoes_mosaic_auto.jpg">
+            <figcaption class="figcaption">Living room mosaic, automated</figcaption>
+        </figure>
+    </div>
+
+    <p>Some other auto-stitched mosaics I created.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/kitchen1.JPG">
+            <figcaption class="figcaption">Kitchen, left</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/kitchen_mosaic_auto.jpg">
+            <figcaption class="figcaption">Kitchen mosaic, automated</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/kitchen2.JPG">
+            <figcaption class="figcaption">Kitchen, right</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/painting1.JPG">
+            <figcaption class="figcaption">Painting, left</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/painting_mosaic_auto.jpg">
+            <figcaption class="figcaption">Painting mosaic, automated</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/painting2.JPG">
+            <figcaption class="figcaption">Painting, right</figcaption>
+        </figure>
+    </div>
+    <h2>Conclusion</h2>
+    <p>I really enjoyed the second part of the project because I could easily create mosaics without having to
+        manually select a bunch of points! The most important thing I learned from this project is that having an
+        intuitive understanding of why each step in an algorithm is important helps when implementing it. The
+        automated
+        feature matching algorithm consists of 5 relatively involved steps, so implementing each step at a time
+        while keeping in mind the big picture allowed me to finish the project without much debugging.</p>
 
 </body>
