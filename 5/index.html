@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>CS180 Project 5: Diffusion Models</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        .container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        figure {
+            display: table;
+            margin-left: 5px;
+            margin-right: 5px;
+        }
+
+        img {
+            max-height: 250px;
+            max-width: 220px;
+            display: block;
+            border: 2px solid black
+        }
+
+        .bigimg {
+            max-height: 500px;
+            max-width: 440px;
+            display: block;
+            border: 2px solid black
+        }
+
+        .superbigimg {
+            max-height: 1000px;
+            max-width: 1000px;
+            display: block;
+            border: 2px solid black
+        }
+
+        figcaption {
+            display: table-caption;
+            caption-side: bottom;
+            font-size: 15px;
+            text-align: center;
+            color: #606060
+        }
+
+        body {
+            padding-left: 15%;
+            padding-right: 15%
+        }
+
+        h1 {
+            padding-bottom: 20px;
+        }
+
+        h2 {
+            padding-top: 30px;
+        }
+
+        h3 {
+            padding-top: 20px;
+        }
+    </style>
+</head>
+
+<body style="font-family: Arial, sans-serif">
+    <h1 style="text-align: center;">CS180 Project 5: Diffusion Models</h1>
+    <p style="text-align: center;">By Ethan Kuo</p>
+
+    <h2>Project 5A: The Power of Diffusion Models</h2>
+
+    <p>Here, I played around with diffusion models, implemented diffusion sampling loops, and used them for other tasks
+        such as
+        inpainting and creating optical illusions</p>
+
+    <h2>Part 0: Setup</h2>
+
+    <p>Let's set up our pretrained model. <strong>Deepfloyd</strong> is a two stage diffusion model, where
+        the first stage prduces an image of size <code>64×64</code> pixels, and the second stage produces an image of
+        size <code>256×256</code>
+        pixels. The model takes in a text prompt and outputs an image. When we sample from the model, we can vary the
+        number of inference steps to take. Inference steps
+        indicate how many denoising steps to take, with the a higher inference step correlating to higher image quality
+        at the cost of computational cost. We also set a random seed to use for the rest of the project. We will be
+        using the seed 1119. Below are some samples from the model given a prompt.</p>
+
+    <p><strong>An oil painting of a snowy mountain village</strong></p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/snowhill1.png">
+            <figcaption class="figcaption">Stage 1, 20 inference steps</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/snowhill2.png">
+            <figcaption class="figcaption">Stage 2, 20 inference steps</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/snowhill_detailed1.png">
+            <figcaption class="figcaption">Stage 1, 100 inference steps</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/snowhill_detailed2.png">
+            <figcaption class="figcaption">Stage 2, 100 inference steps</figcaption>
+        </figure>
+    </div>
+
+    <p>There is noticeably more detail on the 100 inference steps images, such as texture on the snow and shadows on the
+        houses.</p>
+
+    <p><strong>A man wearing a hat</strong></p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/manhat1.png">
+            <figcaption class="figcaption">Stage 1, 20 inference steps</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/manhat2.png">
+            <figcaption class="figcaption">Stage 2, 20 inference steps</figcaption>
+        </figure>
+    </div>
+
+    <p>The generated image is a good match with the prompt. The diffusion model also added details that are not
+        specified by the prompt, such as glasses and a woody backdrop. The stage 2 image looks just like a high
+        resolution version of stage 1.</p>
+
+    <p><strong>A rocket ship</strong></p>
+
+    <p>Again the image is accurate based on the prompt. The model again took some creative liberties, such
+        as making the rocket taking off rather than stationary.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/rocket1.png">
+            <figcaption class="figcaption">Stage 1, 20 inference steps</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/rocket2.png">
+            <figcaption class="figcaption">Stage 2, 20 inference steps</figcaption>
+        </figure>
+    </div>
+
+    <h2>Part 1: Sampling Loops</h2>
+
+    <h3>1.1: Forward process</h3>
+
+    <p>In the forward process, we take a clean image \( x_0 \), and add noise to the clean image to get a noisy image
+        \( x_t \)
+        at timestep \( t \). The noise is sampled from a Gaussian distribution with mean
+        \( \sqrt{\overline{\alpha}_t}x_0 \) and variance \( (1 - \overline{\alpha}_t) \).</p>
+
+    <p>Here, \( \overline{\alpha}_t\) is 1 when <code>t = 0</code> and 0 when <code>t</code> is large.</p>
+
+    <p>
+        This is equivalent to:
+    </p>
+    <p>
+        \( x_t = \sqrt{\overline{\alpha}_t}x_0 + \sqrt{1 - \overline{\alpha}_t}\epsilon \)
+        where \( \epsilon \sim \mathcal{N}(0, 1) \).
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/campanile.png">
+            <figcaption class="figcaption">Original campanile, <code>t = 0</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/noisy_campanile1.png">
+            <figcaption class="figcaption">Noisy campanile, <code>t = 250</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/noisy_campanile2.png">
+            <figcaption class="figcaption">Noisy campanile, <code>t = 500</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/noisy_campanile3.png">
+            <figcaption class="figcaption">Noisy campanile, <code>t = 750</code></figcaption>
+        </figure>
+    </div>
+
+    <h3>1.2: Classical denoising</h3>
+
+    <p>We will attempt to denoise these images using a Gaussian blur.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/campanile.png">
+            <figcaption class="figcaption">Original campanile, <code>t = 0</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/blurred_campanile1.png">
+            <figcaption class="figcaption">Blurred campanile, <code>t = 250</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/blurred_campanile2.png">
+            <figcaption class="figcaption">Blurred campanile, <code>t = 500</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/blurred_campanile3.png">
+            <figcaption class="figcaption">Blurred campanile, <code>t = 750</code></figcaption>
+        </figure>
+    </div>
+
+    <p>The results are unsatisfactory.</p>
+
+    <h3>1.3: One-step denoising</h3>
+
+    <p>Deepfloyd also has a <strong>UNet</strong>, a CNN that can predict Gaussian noise from a noisy image. We will
+        pass the noisy
+        images, a null prompt, and timestep <code>t</code> into this model to recover \( \epsilon \), then recover the
+        initial image by solving</p>
+
+    <p>
+        \[
+        x_0 = \frac{x_t - \sqrt{1 - \overline{\alpha}_t} \epsilon}{\sqrt{\overline{\alpha}_t}}
+        \]
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/campanile.png">
+            <figcaption class="figcaption">Original campanile, <code>t = 0</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/onestep_denoised_campanile1.png">
+            <figcaption class="figcaption">Denoised campanile, <code>t = 250</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/onestep_denoised_campanile2.png">
+            <figcaption class="figcaption">Denoised campanile, <code>t = 500</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/onestep_denoised_campanile3.png">
+            <figcaption class="figcaption">Denoised campanile, <code>t = 750</code></figcaption>
+        </figure>
+    </div>
+
+    <p>The results are much better, but the noisier the image was, the farther the recovered image strays from the
+        actual image. For example, the last one looks almost cylindrical when the actual campanile is rectangular.</p>
+
+    <h3>1.4: Iterative denoising</h3>
+
+    <p>Diffusion models are trained to denoise across many steps. Here, we will use strided timesteps to
+        denoise from <code>t = 990, 960, ..., 0</code></p>
+
+    <p>We transition from the noisy image at timestep \(t\) (\(x_t\)) to the noisy image at an earlier
+        timestep \(t'\) (\(x_{t'}\)), using the formula:</p>
+
+    <p>
+        $$
+        x_{t'} = \frac{\sqrt{\overline{\alpha}_{t'}}\beta_{t'}}{1 - \overline{\alpha}_{t}}x_0 + \frac{\sqrt{\alpha_t}(1
+        - \overline{\alpha}_{t'})}{1 - \overline{\alpha}_{t}}x_t + v_{\sigma}
+        $$
+
+    </p>
+
+    <ul>
+        <li>\(x_t\) is our noisy image at timestep \(t\).</li>
+        <li>\(x_{t'}\) is our noisy image at timestep \(t'\), such that \(t' < t\).</li>
+        <li>\(x_0\) is the one-step denoised version of \(x_t\).</li>
+        <li>\(\alpha_t = \frac{\overline{\alpha}_{t'}}{\overline{\alpha}_t}\).</li>
+        <li>\(\beta_t = 1 - \alpha_t\).</li>
+        <li>\(v_\sigma\) is random noise predicted by the DeepFloyd model.</li>
+    </ul>
+
+    <p>Intuitively, we are incorporating information from each one-step denoised estimate, slowly approaching a clean
+        estimate. Here are the results of iterative denoising the campanile, contrasted with one-step and Gaussian
+        denoising.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/denoised_campanile_t=690.png">
+            <figcaption class="figcaption">Noisy campanile, <code>t = 690</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/denoised_campanile_t=540.png">
+            <figcaption class="figcaption">Noisy campanile, <code>t = 540</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/denoised_campanile_t=390.png">
+            <figcaption class="figcaption">Noisy campanile, <code>t = 390</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/denoised_campanile_t=240.png">
+            <figcaption class="figcaption">Noisy campanile, <code>t = 240</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/denoised_campanile_t=90.png">
+            <figcaption class="figcaption">Noisy campanile, <code>t = 90</code></figcaption>
+        </figure>
+    </div>
+    <div class="container">
+        <figure class="image">
+            <img src="media/campanile.png">
+            <figcaption class="figcaption">Original campanile</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/iteratively_denoised_campanile.png">
+            <figcaption class="figcaption">Iteratively denoised campanile</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/one_step_denoised_campanile.png">
+            <figcaption class="figcaption">One-step denoised campanile</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/gaussian_blurred_campanile.png">
+            <figcaption class="figcaption">Gaussian denoised campanile</figcaption>
+        </figure>
+    </div>
+
+    <p>Comparing these outcomes, I would say the iteratively denoised campanile is slightly better than the one-step
+        denoised campanile since there is more detail. Gaussian denoising remains a poor option.</p>
+
+    <h3>1.5: Diffusion model sampling</h3>
+
+    <p>In the previous part, we went from a super noisy image of the campanile (basically indistinguishable from pure
+        noise) into a clean version of the campanile. This begs the question: what happens if we iteratively denoise
+        pure noise? Here are the results on 5 random noise samples with the general prompt "a high quality photo":</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/random1.png">
+        </figure>
+        <figure class="image">
+            <img src="media/random2.png">
+        </figure>
+        <figure class="image">
+            <img src="media/random3.png">
+        </figure>
+        <figure class="image">
+            <img src="media/random4.png">
+        </figure>
+        <figure class="image">
+            <img src="media/random5.png">
+        </figure>
+    </div>
+
+    <p>These are (mostly) coherent images, and the topic is completely random as expected.</p>
+
+    <h3>1.6: Classifier free guidance</h3>
+    <p>
+        To improve the image quality at the expense of image diversity, we can use a technique called
+        <strong>classifier free guidance</strong>. Given a noisy image, CFG combines a noise estimate conditioned on
+        a text prompt \( \epsilon_c \) and an unconditioned noise estimate \( \epsilon_u \) to produce an overall noise
+        estimate \( \epsilon \)
+    </p>
+    <p>$$
+        \epsilon = \epsilon_u + \gamma (\epsilon_c - \epsilon_u)
+        $$</p>
+
+    <p>When \( \gamma \) is 0, \( \epsilon \) is the unconditioned noise estimate, and when \( \gamma \) is 1, \(
+        \epsilon
+        \) is the conditioned noise estimate. Interestingly enough, when \( \gamma > 1\) we get the highest quality
+        images!</p>
+
+    <p>Again, here are 5 sampled images with the general prompt "a high quality photo":</p>
+    <div class="container">
+        <figure class="image">
+            <img src="media/cfg1.png">
+        </figure>
+        <figure class="image">
+            <img src="media/cfg2.png">
+        </figure>
+        <figure class="image">
+            <img src="media/cfg3.png">
+        </figure>
+        <figure class="image">
+            <img src="media/cfg4.png">
+        </figure>
+        <figure class="image">
+            <img src="media/cfg5.png">
+        </figure>
+    </div>
+
+    <p>I would say the CFG images are higher quality and more natural looking.</p>
+
+    <h3>1.7: Image-to-image translation</h3>
+
+    <p>Let's make edits to an image by adding some noise then forcing it back into the
+        image manifold without any conditioning. Essentially, this forces the diffusion model to be "creative" in
+        bringing a noisy image back into a "natural" looking image.</p>
+
+    <p>Here, we will add varying amount of noise to the campanile image (decreasing noise), then run CFG denoising to
+        get an image "translated" from the original.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/translated_campanile6.png">
+            <figcaption class="figcaption">Translated campanile, <code>t = 960</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/translated_campanile5.png">
+            <figcaption class="figcaption">Translated campanile, <code>t = 900</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/translated_campanile4.png">
+            <figcaption class="figcaption">Translated campanile, <code>t = 840</code></figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/translated_campanile3.png">
+            <figcaption class="figcaption">Translated campanile, <code>t = 780</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/translated_campanile2.png">
+            <figcaption class="figcaption">Translated campanile, <code>t = 690</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/translated_campanile1.png">
+            <figcaption class="figcaption">Translated campanile, <code>t = 390</code></figcaption>
+        </figure>
+    </div>
+
+    <p>As expected, the more noise we introduce, the greater the edit since we are straying farther from the original
+        image. At the extremes, we completely lose sight on the original topic.</p>
+
+    <h4>1.7.1: Editing hand-drawn and web images</h4>
+
+    <p>Can we make realistic versions of drawn images using image translation? Specifically, by adding some noise to a
+        drawing then projecting it into the natural image manifold. Let's see:</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/levi.png">
+            <figcaption class="figcaption">Levi</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/levi1.png">
+            <figcaption class="figcaption">Translated Levi, <code>t = 390</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/levi2.png">
+            <figcaption class="figcaption">Translated Levi, <code>t = 690</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/levi3.png">
+            <figcaption class="figcaption">Translated Levi, <code>t = 780</code></figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/levi4.png">
+            <figcaption class="figcaption">Translated Levi, <code>t = 840</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/levi5.png">
+            <figcaption class="figcaption">Translated Levi, <code>t = 900</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/levi6.png">
+            <figcaption class="figcaption">Translated Levi, <code>t = 960</code></figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/mushroom_drawing.png">
+            <figcaption class="figcaption">Shroom</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/mushroom1.png">
+            <figcaption class="figcaption">Translated shroom, <code>t = 390</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/mushroom2.png">
+            <figcaption class="figcaption">Translated shroom, <code>t = 690</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/mushroom3.png">
+            <figcaption class="figcaption">Translated shroom, <code>t = 780</code></figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/mushroom4.png">
+            <figcaption class="figcaption">Translated shroom, <code>t = 840</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/mushroom5.png">
+            <figcaption class="figcaption">Translated shroom, <code>t = 900</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/mushroom6.png">
+            <figcaption class="figcaption">Translated shroom, <code>t = 960</code></figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/face_drawing.png">
+            <figcaption class="figcaption">Cool face</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/face1.png">
+            <figcaption class="figcaption">Translated cool face, <code>t = 390</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/face2.png">
+            <figcaption class="figcaption">Translated cool face, <code>t = 690</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/face3.png">
+            <figcaption class="figcaption">Translated cool face, <code>t = 780</code></figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/face4.png">
+            <figcaption class="figcaption">Translated cool face, <code>t = 840</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/face5.png">
+            <figcaption class="figcaption">Translated cool face, <code>t = 900</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/face6.png">
+            <figcaption class="figcaption">Translated cool face, <code>t = 960</code></figcaption>
+        </figure>
+    </div>
+    <p>Honestly, I'm a bit disapointed in these results. It seems that when we add just a little noise, there isn't
+        enough
+        room for creativity for the model to stray from the drawing and to make it look realistic. On the contrary, when
+        we add too much noise, we lose sight of the meaning of the intial drawing.</p>
+
+    <h4>1.7.2: Inpainting</h4>
+
+    <p><strong>Inpainting</strong> is the process of regenerating a specific part of an image. The inpainting procedure
+        takes in an image
+        \( x_{\text{orig}} \) and a binary mask \( \text{m} \), and creates a new image where \( \text{m} = 1 \),
+        while keeping the original image where \( \text{m} = 0 \).
+    </p>
+
+    <p>The inpainting algorithm denoises pure noise using CFG but with one simple modification: after
+        obtaining
+        \( x_{t'} \) in each iteration, we "force" \( x_{t'} \) to have the same pixels as \( x_{\text{orig}} \) where
+        \( \text{m} = 0
+        \)
+        through the equation:</p>
+
+    <div class="equation">
+        \[
+        x_{t'} \leftarrow \text{m} x_{t'} + (1 - \text{m}) \cdot f(x_{\text{orig}}, t')
+        \]
+    </div>
+
+    <p>
+        where \( f \) is the forward process from earlier. Here, we apply inpainting to the top of the campanile:
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/campanile.png">
+            <figcaption class="figcaption">Campanile</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/mask.png">
+            <figcaption class="figcaption">Mask</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/campanile_to_replace.png">
+            <figcaption class="figcaption">Region to replace</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/inpainted_campanile.png">
+            <figcaption class="figcaption">Inpainted campanile</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/minigolf.png">
+            <figcaption class="figcaption">Minigolf</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/minigolf_mask.png">
+            <figcaption class="figcaption">Mask</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/minigolf_replace_region.png">
+            <figcaption class="figcaption">Region to replace</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/inpainted_minigolf.png">
+            <figcaption class="figcaption">Inpainted minigolf</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/nightsky.png">
+            <figcaption class="figcaption">Night sky</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/nightsky_mask.png">
+            <figcaption class="figcaption">Mask</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/nightsky_replace_region.png">
+            <figcaption class="figcaption">Region to replace</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/inpainted_night_sky.png">
+            <figcaption class="figcaption">Inpainted night sky</figcaption>
+        </figure>
+    </div>
+
+    <p>The results are... interesting. It is quite funny how a baby was inpainted on the minigolf hill, and I thought
+        the black cat on a tree branch with the moon in the background was very creative! One thing to note here is that
+        the diffusion model is generating a pure projection to the natural image manifold, which makes sense given the
+        random results. In the next part, we will add
+        a text prompt to guide image generation.</p>
+
+    <h4>1.7.3: Text conditioned image-to-image generation</h4>
+
+    <p>Here, we are generating images off the campanile image with the prompt "a rocket ship". As expected, the more
+        noise we introduce, the less campanile-like the result it is, and we can always see something like a rocket
+        ship.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/rocket_campanile_t=960.png">
+            <figcaption class="figcaption"><code>t = 960</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/rocket_campanile_t=900.png">
+            <figcaption class="figcaption"><code>t = 900</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/rocket_campanile_t=840.png">
+            <figcaption class="figcaption"><code>t = 840</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/rocket_campanile_t=780.png">
+            <figcaption class="figcaption"><code>t = 780</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/rocket_campanile_t=690.png">
+            <figcaption class="figcaption"><code>t = 690</code></figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/rocket_campanile_t=390.png">
+            <figcaption class="figcaption"><code>t = 390</code></figcaption>
+        </figure>
+    </div>
+
+    <h3>1.8: Visual Anagrams</h3>
+
+    <p>A <strong>visual anagram</strong> is essentially an optical illusion. In this part, we will create an image that
+        looks like one thing, but when flipped upside down will reveal another thing</p>
+
+    <p>To do this, we will use CFG but set the noise estimate for each iteration to be an average of both prompts.
+        Specifically, we denoise an image \(x_t\) at step \(t\) normally with the first prompt to obtain noise estimate
+        \(\epsilon_1\). But at the same time, we will flip \(x_t\) upside down, and
+        denoise with the second prompt to get noise estimate \(\epsilon_2\). We
+        can flip \(\epsilon_2\) back, to make it right-side up, and average the two noise estimates. We can then perform
+        a reverse diffusion step with the averaged noise estimate.
+    </p>
+
+    <p>The noise estimate formula is:
+
+        \[
+        \epsilon_1 = \text{UNet}(x_t, t, p_1)
+        \]
+
+        \[
+        \epsilon_2 = \text{flip}(\text{UNet}(\text{flip}(x_t), t, p_2))
+        \]
+
+        \[
+        \epsilon = \frac{\epsilon_1 + \epsilon_2}{2}
+        \]
+    </p>
+
+    <p>Here are some results!</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/man_bonfire.png">
+            <figcaption class="figcaption">An oil painting of an old man</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/bonfire_man.png">
+            <figcaption class="figcaption">An oil painting of people around a campfire</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/bulldog_coast.png">
+            <figcaption class="figcaption">A photo of a dog</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/coast_bulldog.png">
+            <figcaption class="figcaption">A photo of the amalfi coast</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/sunset_apocalypse.png">
+            <figcaption class="figcaption">An oil painting of the sunset</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/apocalypse_susnet.png">
+            <figcaption class="figcaption">An oil painting of a post-apocalyptic city</figcaption>
+        </figure>
+    </div>
+
+    <h3>1.9: Hybrid Images</h3>
+
+    <p>Just like in project 2, we will create images that appear differently up close and afar. Similar to visual
+        analogs, we employ CFG but with a modified noise estimate formula. Here, we estimate the noise based on both
+        prompts then combine the low frequencies of the first image with the high frequencies of the second image.</p>
+
+    <p>The noise estiamte formula is:
+
+        \[
+        \epsilon_1 = \text{UNet}(x_t, t, p_1)
+        \]
+
+        \[
+        \epsilon_2 = \text{UNet}(x_t, t, p_2)
+        \]
+
+        \[
+        \epsilon = f_{\text{lowpass}}(\epsilon_1) + f_{\text{highpass}}(\epsilon_2)
+        \]
+
+    </p>
+    <div class="container">
+        <figure class="image">
+            <img src="media/skull.png">
+            <figcaption class="figcaption">A lithograph of a skull</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/waterfall.png">
+            <figcaption class="figcaption">A lithograph of waterfalls</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/rocket.png">
+            <figcaption class="figcaption">A rocket ship</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/pencil.png">
+            <figcaption class="figcaption">A pencil</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/city.png">
+            <figcaption class="figcaption">A city skyline</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/burger.png">
+            <figcaption class="figcaption">A burger</figcaption>
+        </figure>
+    </div>
+
+    <p>I am impressed by how good these hybrid images are! They are much better than the
+        results I had from Project 2, where I manually picked 2 images to make a hybrid.</p>
+
+    <h2>Part B: Diffusion Models from Scratch</h2>
+
+    <p>Here, we will create a diffusion model from scratch using the MNIST dataset. We'll create a generative model
+        capable of synthesizing images of handwritten digits
+        similar to those in the MNIST dataset.</p>
+
+    <h2>Part 1: Training a Single-step Denoising UNet</h2>
+
+    <h3>1.1: Implementing the UNet</h3>
+
+    <p>As we know from the previous part, a UNet takes in a noisy image and outputs a noise estimate, which we can
+        subtract to get a cleaner image. Here, we use <code>torch.nn</code> to create a
+        <code>class UnconditionalUnet(nn.Module)</code> with a <code>forward(x)</code> function that implements the
+        following neural network:
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="superbigimg" src="media/unet_diagram.png">
+            <figcaption class="figcaption">UNet architecture</figcaption>
+        </figure>
+    </div>
+
+    <h3>1.2 Using the UNet to Train a Denoiser</h3>
+
+    <p>To train this model, we will use the MNIST dataset, which consists of many images of handwritten digits. The
+        training data is in the format \( (z, x) \), where \( x \) is the image and
+        \(z = x + \sigma \epsilon \quad \text{where} \ \epsilon \sim \mathcal{N}(0, I) \). Essentially, \( z \) is a
+        noisy version of \( x \). We will train our model parameters using the L2 loss function \(L = \|
+        D_\theta(z) - x \|^2 \).
+    </p>
+
+    <p>While preparing the training data, I added various levels of noise to the digits to visualize the forward
+        process. Ultimately, our diffusion model will do the reverse process, taking pure noise and moving towards a
+        handwritten digit incrementally.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="bigimg" src="media/noisy_data_grid.png">
+        </figure>
+    </div>
+
+    <h4>1.2.1 Training</h4>
+
+    <p>I trained the model using the following hyperparameters:</p>
+
+    <ol>
+        <li><code>epochs = 5</code></li>
+        <li><code>batch_size = 256</code></li>
+        <li><code>learning_rate = 1e-4</code></li>
+        <li><code>D = 128</code></li>
+    </ol>
+
+    <p>Also, I used the Adam optimizer for its speed, and I trained the model with noisy images with \( \sigma = 0.5 \)
+        paired with the original image.</p>
+
+    <p>The training results are shown in the loss curve:</p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="superbigimg" src="media/training_losses.png">
+        </figure>
+    </div>
+
+    <p>By looking at how our model performs on unseen test data in the first and last epoch, we can see that as the
+        model is improving:</p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="bigimg" src="media/first_epoch.png">
+            <figcaption class="figcaption">Epoch 1</figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img class="bigimg" src="media/last_epoch.png">
+            <figcaption class="figcaption">Epoch 5</figcaption>
+        </figure>
+    </div>
+
+    <h4>1.2.2 Out-of-Distribution Testing</h4>
+
+    <p>Even though the model was trained on images noised with a variance of 0.5, it can still be used on images with
+        different noise levels. Here is how the model performs on random test set data with varying
+        noise levels:</p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="superbigimg" src="media/different_sigmas1.png">
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img class="superbigimg" src="media/different_sigmas2.png">
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img class="superbigimg" src="media/different_sigmas3.png">
+        </figure>
+    </div>
+
+    <p>Results are worse as there is more noise, but we can see that the performance is still pretty good! Our model is
+        definitely capable of denoising a reasonably
+        noisy handwritten digit. Awesome!</p>
+
+    <p>However, our model would not be capable of generatoring legitimate images of handwritten digits from pure noise,
+        as shown by the poor results with high noise levels. Can we do better?</p>
+
+    <h2>Part 2: Training a Diffusion Model</h2>
+
+    <p>We want a diffusion model to be performant for any noise level \(t = 1, ... , T \). A naive solution is to simply
+        build T UNets as in Part 1, training each on images with a specific noise level. A better solution
+        is to
+        implement a single UNet with time conditioning that can accurately estimate noise for any noise level. Then, we
+        can use the iterative denoising algorithms we've discussed in Part A to arrive at a clean image.</p>
+
+    <h3>2.1 Adding Time Conditioning to UNet</h3>
+
+    <p>Implementing this UNet is extremely similar to the previous one. One small difference is that we
+        can change our UNet to predict the added noise instead of the clean image. Another is that we will embed the
+        timestep into
+        our existing
+        model using FCBlocks.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="superbigimg" src="media/time_conditioned_unet_diagram.png">
+            <figcaption>Time-conditioned UNet architecture</figcaption>
+        </figure>
+    </div>
+
+    <h3>2.2 Training the UNet</h3>
+
+    <p>We train the model on images of various noise levels until satisfaction.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="superbigimg" src="media/training_algo.png">
+            <figcaption>Training algorithm</figcaption>
+        </figure>
+    </div>
+
+    <p>I trained the model using the following hyperparameters:</p>
+
+    <ol>
+        <li><code>epochs = 20</code></li>
+        <li><code>batch_size = 128</code></li>
+        <li><code>learning_rate = 1e-3</code> with exponential learning rate decay of \( \gamma =
+            0.1^{\left(1.0/\text{epochs}\right)}
+            \)</li>
+        <li><code>D = 64</code></li>
+
+    </ol>
+
+    <p>Also, I used the Adam optimizer for its speed. The training results are shown in the loss curve:</p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="superbigimg" src="media/time_condition_training_curve.png">
+        </figure>
+    </div>
+
+    <h3>2.3 Sampling from the UNet</h3>
+
+    <p>Now that our model is trained, let's sample some images! More precisely, we will pass in pure noise into our
+        model to produce a one-step denoised estimate, remove some noise using that estimate, then repeat the process
+        across many timesteps.</p>
+
+    <p>Here are the results for the time-conditioned UNet for 5 and 20 epochs</p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="superbigimg" src="media/epoch_5_time_condition.png">
+            <figcaption>Epoch 5</figcaption>
+        </figure>
+    </div>
+    <div class="continer">
+        <figure class="image">
+            <img class="superbigimg" src="media/epoch_20_time_condition.png">
+            <figcaption>Epoch 20</figcaption>
+        </figure>
+    </div>
+
+    <p>We can see that the longer we train for, the better quality the images are. However, some are still
+        unintelligable.</p>
+
+    <h3>2.4 Adding Class-Conditioning to UNet</h3>
+
+    <p>What if we want to generate a specific digit? We will train the model with a class condition. Basically, our
+        model will not only be trained by a noisy image and a timestep but also its true class (a number from 0 to 9).
+        This
+        class will be one
+        hot encoded and then be passed into the model.</p>
+
+    <p>However, we still want our model to be able to work on unlabeled data, so we implement a 10% dropout so that some
+        of our training data will not have its true label considered. Here is the training loss curve:</p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="superbigimg" src="media/class_condition_loss_curve.png">
+        </figure>
+    </div>
+
+    <h3>2.5 Sampling from the Class-Conditioned UNet</h3>
+
+    <p>We know from Part A that classifier-free guidance allows for high quality image generation from pure noise, so we
+        implement CFG here with \( \gamma = 5\), using our class-conditioned UNet to derive one-step noise estimates.
+    </p>
+
+    <p>Here are the results for the time-conditioned UNet for 5 and 20 epochs</p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="superbigimg" src="media/class_condition_epoch5.png">
+            <figcaption>Epoch 5</figcaption>
+        </figure>
+    </div>
+    <div class="continer">
+        <figure class="image">
+            <img class="superbigimg" src="media/class_condition_epoch20.png">
+            <figcaption>Epoch 20</figcaption>
+        </figure>
+    </div>
+
+    <h3>Conclusion</h3>
+
+    <p>It was great to learn the workflow for implement a machine learning model from scratch. It's awesome that I've
+        built a model that can generate images of any digit I want!</p>
+
+</body>
+
+
+</html>
