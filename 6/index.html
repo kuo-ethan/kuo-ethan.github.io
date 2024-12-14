@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>CS180 Final Project</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        .container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        figure {
+            display: table;
+            margin-left: 5px;
+            margin-right: 5px;
+        }
+
+        img {
+            max-height: 250px;
+            max-width: 220px;
+            display: block;
+            border: 2px solid black
+        }
+
+        .bigimg {
+            max-height: 500px;
+            max-width: 440px;
+            display: block;
+            border: 2px solid black
+        }
+
+        .superbigimg {
+            max-height: 1000px;
+            max-width: 1000px;
+            display: block;
+            border: 2px solid black
+        }
+
+        figcaption {
+            display: table-caption;
+            caption-side: bottom;
+            font-size: 15px;
+            text-align: center;
+            color: #606060
+        }
+
+        body {
+            padding-left: 15%;
+            padding-right: 15%
+        }
+
+        h1 {
+            padding-bottom: 20px;
+        }
+
+        h2 {
+            padding-top: 30px;
+        }
+
+        h3 {
+            padding-top: 20px;
+        }
+    </style>
+</head>
+
+<body style="font-family: Arial, sans-serif">
+    <h1 style="text-align: center;">CS180 Project 6: Image Quilting</h1>
+    <p style="text-align: center;">By Ethan Kuo</p>
+
+    <h2>Introduction</h2>
+    <p>In this project, we implement a <strong>texture synthesis</strong> algorithm. Texture synthesis is the creation
+        of a larger
+        texture
+        image from a small sample. In addition, we can modify this algorithm slightly to implement a <strong>texture
+            transfer</strong>
+        algorithm. Texture transfer is giving an
+        object the appearance of having the same texture as a sample while preserving its basic shape.</p>
+
+    <p>We can think of our synthesis algorithm as "image quilting" because we essentially build our output by
+        thoughtfully stitching together patches from a sample texture.</p>
+
+    <h2>Randomly sampled texture</h2>
+    <p>Perhaps the most naive texture synthesis algorithm is simply randomly sampling patches from the input texture
+        image and stitching them together:</p>
+
+    <p>Parameters: <code>(out_size, patch_size) = (400, 25)</code></p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/bricks_small.png">
+            <figcaption class="figcaption">Input texture</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/bricks_random.png">
+            <figcaption class="figcaption">Synthetic texture
+            </figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/cloth_small.png">
+            <figcaption class="figcaption">Input texture</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/cloth_random.png">
+            <figcaption class="figcaption">Synthetic texture
+            </figcaption>
+        </figure>
+    </div>
+
+    <p>The results are unsatisfactory because there is no smooth transition between patches.</p>
+
+    <h2>Overlapping patches</h2>
+    <p>We can encourage smoother transitions between patches by making sure adjacent patches have similar overlap
+        regions.
+        This idea motivates the following algorithm:</p>
+
+    <ol>
+        <li>Sample a random patch for the top left corner of our synthetic image</li>
+        <li>For each block in output image in raster scan order, each block overlapping its left and upper
+            neighbor by a small amount:</li>
+        <ul>
+            <li>Search all possible patches in the input texture and create a list of candidate patches that are similar
+                enough in the overlap region</li>
+            <li>Randomly sample one of the top <code>tol</code> patches and insert into the synthetic image</li>
+    </ol>
+    </ol>
+
+    <p>As you can see, the edges are much smoother (though still not great):</p>
+
+    <p>Parameters: <code>(out_size, patch_size, tol) = (400, 25, 3)</code></p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/bricks_small.png">
+            <figcaption class="figcaption">Input texture</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/bricks_overlap.png">
+            <figcaption class="figcaption">Synthetic texture
+            </figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/cloth_small.png">
+            <figcaption class="figcaption">Input texture</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/cloth_overlap.png">
+            <figcaption class="figcaption">Synthetic texture
+            </figcaption>
+        </figure>
+    </div>
+
+    <h2>Seam finding</h2>
+    <p>One futher optimization we can add to make the edges even smoother is defining a seam within the overlap region
+        of the existing patch and the incoming sample patch. More specifically, for each sample patch we are inserting,
+        we
+        will compute a minimum cost path
+        through the overlap region to find where pixels match the best, then leaving the existing texture on
+        one side of the seam and inserting the incoming patch on the other side. </p>
+
+    <p>Here is the process in detail:</p>
+
+    <div class="container">
+
+        <figure class="image">
+            <img src="media/overlap_existing.png">
+            <figcaption class="figcaption">Existing patch, overlap region</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/overlap_incoming.png">
+            <figcaption class="figcaption">Incoming patch, overlap region</figcaption>
+        </figure>
+    </div>
+
+    <p>Our in-progress synthetic image has the first image patch, and we want to insert the second image. Let's compute
+        SSD error in the overlap region:</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/error_left.png">
+            <figcaption class="figcaption">Error, left overlap region</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/error_top.png">
+            <figcaption class="figcaption">Error, top overlap region</figcaption>
+        </figure>
+    </div>
+
+    <p>We find a seam through these overlap regions where the error is minimized:</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/seam_mask_left.png">
+            <figcaption class="figcaption">Seam mask, left overlap region</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/seam_mask_top.png">
+            <figcaption class="figcaption">Seam mask, top overlap region</figcaption>
+        </figure>
+    </div>
+
+    <p>Now, we take the intersection of these masks to get our final seam. In the black region, we will keep the
+        existing texture, and in the white region we will insert the incoming texture:</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/seam_mask.png">
+            <figcaption class="figcaption">Seam mask</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/seam_result_overlap.png">
+            <figcaption class="figcaption">Result, overlap region</figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/seam_result.png">
+            <figcaption class="figcaption">Result</figcaption>
+        </figure>
+    </div>
+
+    <p>By doing this, we hope to smooth out the edges between adjacent patches. Here are the results using the same
+        parameters as above:</p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="bigimg" src="media/bricks_overlap.png">
+            <figcaption class="figcaption">Synthetic texture w/o seam finding</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/bricks_seam.png">
+            <figcaption class="figcaption">Synthetic texture w/ seam finding
+            </figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img class="bigimg" src="media/cloth_overlap.png">
+            <figcaption class="figcaption">Synthetic texture w/o seam finding</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/cloth_seam.png">
+            <figcaption class="figcaption">Synthetic texture w/ seam finding
+            </figcaption>
+        </figure>
+    </div>
+
+    <p>It is more obvious with the cloth texture, but in both it is harder to see the edges where each sample patch was
+        inserted!</p>
+
+    <h2>Texture transfer</h2>
+
+    <p>Now we will explore an interesting application of texture synthesis: transfering a texture onto an image!
+        Essentially, our texture transfer algorithm augments our synthesis algorithm by requiring that each patch
+        inserted satisfies a defined <strong>correspondence map</strong> in addition to the existing overlap
+        constraints. Let's walk through an example:</p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="bigimg" src="media/sketch.png">
+            <figcaption class="figcaption">Input texture</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/feynman.png">
+            <figcaption class="figcaption">Target image
+            </figcaption>
+        </figure>
+    </div>
+
+    <p>Here, we will try to recreate Feynman with the texture from the sketch. First, we will define correspondence
+        maps, which are simply the result of applying some function to each image. Here, I used blurred luminance values
+        for the sketch, and direct luminance values for Feynman:
+    </p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="bigimg" src="media/sketch_correspondence.png">
+            <figcaption class="figcaption">Input texture correspondence map</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/feynman_correspondence.png">
+            <figcaption class="figcaption">Target image correspondence map
+            </figcaption>
+        </figure>
+    </div>
+
+    <p>Then, as we are choosing a patch to insert, we modify the error term of the image quilting algorithm to be the
+        weighted sum &alpha; times the block overlap matching error plus (1 - &alpha;) times the error between
+        the
+        correspondence map pixels within the source texture block and those at the current target image position.</p>
+
+    <p>Parameters: <code>(patch_size, overlap, tol, alpha) = (25, 8, 3, 0.5)</code></p>
+    <div class="container">
+        <figure class="image">
+            <img class="bigimg" src="media/feynman_sketch.png">
+            <figcaption class="figcaption">Synthetic image</figcaption>
+        </figure>
+    </div>
+
+    <p>Pretty cool! Here are some other results of texture transfer:</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/bricks_small.png">
+            <figcaption class="figcaption">Input texture</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/feynman.png">
+            <figcaption class="figcaption">Target image</figcaption>
+        </figure>
+        <figure class="image">
+
+            <img class="bigimg" src="media/feynman_bricks.png">
+            <figcaption class="figcaption">Synthetic image
+            </figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/cotton.png">
+            <figcaption class="figcaption">Input texture</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/feynman.png">
+            <figcaption class="figcaption">Target image</figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/feynman_cotton.png">
+            <figcaption class="figcaption">Synthetic image
+            </figcaption>
+        </figure>
+    </div>
+
+    <h2>Iterative texture transfer</h2>
+
+    <p>Since we only do one pass during the synthesis process, we are restricted to a single patch size and can lose
+        detail. One optimization is to loop the texture synthesis process with gradually decreasing patch size. The only
+        change
+        from the non-iterative version is that in satisfying the local texture constraint, the blocks are matched not
+        just with their neighbor
+        blocks in the overlap regions but also with whatever was synthesized at this block in the previous iteration.
+    </p>
+
+    <p>Also, we increase &alpha; each iteration according to the following formula: \( \alpha_i = 0.8 \cdot \frac{i -
+        1}{N - 1} + 0.1
+        \). This is so to make sure that as we progress, we still have good continuity behavior between patches and
+        don't overfit to target image details.</p>
+
+
+    <p>Parameters: <code>(patch_size, overlap, tol, iterations) = (25, 4, 3, 4)</code></p>
+
+    <div class="container">
+        <figure class="image">
+            <img class="bigimg" src="media/feynman_sketch.png">
+            <figcaption class="figcaption">Synthetic image, non-iterative
+            </figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/feynman_sketch_iterative.png">
+            <figcaption class="figcaption">Synthetic image, iterative
+            </figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img class="bigimg" src="media/feynman_cotton.png">
+            <figcaption class="figcaption">Synthetic image, non-iterative
+            </figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/feynman_cotton_iterative.png">
+            <figcaption class="figcaption">Synthetic image, iterative
+            </figcaption>
+        </figure>
+    </div>
+
+    <div class="container">
+        <figure class="image">
+            <img class="bigimg" src="media/feynman_bricks.png">
+            <figcaption class="figcaption">Synthetic image, non-iterative
+            </figcaption>
+        </figure>
+        <figure class="image">
+            <img class="bigimg" src="media/feynman_bricks_iterative.png">
+            <figcaption class="figcaption">Synthetic image, iterative
+            </figcaption>
+        </figure>
+    </div>
+
+    <p>We can see that details, such as the mouth, are much more visible. However, as the patch sizes decrease, we also
+        lose big picture structure and patterns, such as the brick pattern.</p>
+
+
+    <h1 style="text-align: center;">CS180 Project 7: Light Field Camera</h1>
+    <p style="text-align: center;">By Ethan Kuo</p>
+
+    <h2>Depth refocusing</h2>
+
+    <p>Using the chessboard images from the Stanford Light Field Archive, I first implemented depth refocusing. We have
+        many images of the same chessboard that are taken from cameras shifted in the x, y directions. When we average
+        these images, we see the back of the chessboard as clear while the front is blurry due to the parallax effect.
+    </p>
+
+    <p>With the displacement of each camera from the center camera (x and y), I shifted each image by C * x
+        and C * y. My findings show that when C is small (0), the front is blurry, while when C is big (3) the back is
+        blurry.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/C=0.png">
+            <figcaption class="figcaption">C=0
+            </figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/C=1.5.png">
+            <figcaption class="figcaption">C=1.5
+            </figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/C=3.png">
+            <figcaption class="figcaption">C=3
+            </figcaption>
+        </figure>
+    </div>
+
+    <p>Here is a GIF showing the chessboard from C=0 to C=3:</p>
+
+    <div class="container">
+        <figure class="image">
+            <img class='bigimg' src="media/chess.gif">
+        </figure>
+    </div>
+
+    <h2>Aperture adjustment</h2>
+
+    <p>The previous part shows that C=1.5 is the best if we want the center of the chessboard clear. Now, we want to
+        blur some of the outside of the chessboard. To do this, we ignore images that are more than a certain
+        radius away from the center; this essentially acts as a camera aperture.</p>
+
+    <p>When R=0, we just get the center image. When R increases, we gradually average more images and thus get blurry
+        results. The blur occurs on the borders because the new images we are adding are further and further away from
+        the center image.</p>
+
+    <div class="container">
+        <figure class="image">
+            <img src="media/R=1.png">
+            <figcaption class="figcaption">R=0
+            </figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/R=4.png">
+            <figcaption class="figcaption">R=4
+            </figcaption>
+        </figure>
+        <figure class="image">
+            <img src="media/R=8.png">
+            <figcaption class="figcaption">R=8
+            </figcaption>
+        </figure>
+    </div>
+
+    <p>Here's the GIF from R=0 to R=8:</p>
+    <div class="container">
+        <figure class="image">
+            <img class='bigimg' src="media/chess_aperture.gif">
+        </figure>
+    </div>
+
+</body>
+
+
+</html>
